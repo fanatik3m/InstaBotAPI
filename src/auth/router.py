@@ -4,3 +4,4 @@ router = APIRouter(
     prefix='/auth',
     tags=['Auth']
 )
+
