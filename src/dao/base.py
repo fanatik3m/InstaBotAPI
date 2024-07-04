@@ -1,8 +1,12 @@
 import uuid
-from typing import Union
+from typing import Union, TypeVar
+
+from pydantic import BaseModel
 
 from sqlalchemy import select, insert, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
+
+Schema = TypeVar('Schema', bound=BaseModel)
 
 
 class BaseDAO:
@@ -27,13 +31,23 @@ class BaseDAO:
         return result.scalar_one_or_none()
 
     @classmethod
-    async def add(cls, session: AsyncSession, **data):
+    async def add(cls, session: AsyncSession, obj: Union[dict, Schema]):
+        if isinstance(obj, dict):
+            data = obj
+        else:
+            data = obj.model_dump(exclude_unset=True)
+
         stmt = insert(cls.model).values(**data).returning(cls.model)
         result = await session.execute(stmt)
         return result.scalars().first()
 
     @classmethod
-    async def update(cls, session: AsyncSession, *where, **data):
+    async def update(cls, session: AsyncSession, *where, obj: Union[dict, Schema]):
+        if isinstance(obj, dict):
+            data = obj
+        else:
+            data = obj.model_dump(exclude_unset=True)
+
         stmt = update(cls.model).where(*where).values(**data).returning(cls.model)
         result = await session.execute(stmt)
         return result.scalars().one()

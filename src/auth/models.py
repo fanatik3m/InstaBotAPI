@@ -5,6 +5,7 @@ from sqlalchemy import String, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 
 from auth.orm_annotates import created_at, updated_at
+from auth.schemas import UserSchema
 from database import Base
 
 
@@ -18,6 +19,16 @@ class UserModel(Base):
     hashed_password: Mapped[str]
     created_at: Mapped[created_at]
     updated_at: Mapped[updated_at]
+
+    def to_schema(self):
+        return UserSchema(
+            id=self.id,
+            username=self.username,
+            fullname=self.fullname,
+            email=self.email,
+            created_at=self.created_at,
+            updated_at=self.updated_at
+        )
 
 
 class RefreshSessionModel(Base):

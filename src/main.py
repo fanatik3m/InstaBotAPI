@@ -3,8 +3,12 @@ import sys
 
 from fastapi import FastAPI
 
+from auth.router import router as auth_router
+
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 app = FastAPI(
     title='InstaBot_API'
 )
+
+app.include_router(auth_router)
