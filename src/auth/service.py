@@ -57,18 +57,18 @@ class AuthService:
 
             if refresh_session is None:
                 raise InvalidTokenException
-            if datetime.utcnow() > refresh_session.created_at + timedelta(days=refresh_session.expires_in):
+            if datetime.utcnow() >= refresh_session.created_at + timedelta(seconds=refresh_session.expires_in):
                 await RefreshSessionDAO.delete(session, id=refresh_session.id)
                 raise TokenExpiredException
 
-            user = await UserDAO.find_one(session, id=refresh_session.id)
+            user = await UserDAO.find_one(session, id=refresh_session.user_id)
             if user is None:
                 raise InvalidTokenException
 
             access_token = cls._create_access_token(user_id=user.id)
             refresh_token = cls._create_refresh_token()
             refresh_token_expires = timedelta(
-                days=config.REFRESH_TOKEN_EXPIRE_DAYS
+                days=int(config.REFRESH_TOKEN_EXPIRE_DAYS)
             )
 
             await RefreshSessionDAO.update(
@@ -100,7 +100,7 @@ class AuthService:
     async def create_token(cls, user_id: uuid.UUID) -> TokenSchema:
         access_token = cls._create_access_token(user_id)
         refresh_token = cls._create_refresh_token()
-        refresh_token_expires = timedelta(days=config.REFRESH_TOKEN_EXPIRE_DAYS)
+        refresh_token_expires = timedelta(days=int(config.REFRESH_TOKEN_EXPIRE_DAYS))
 
         async with async_session_maker() as session:
             await RefreshSessionDAO.add(
@@ -115,9 +115,9 @@ class AuthService:
         return TokenSchema(access_token=access_token, refresh_token=refresh_token, token_type='Bearer')
 
     @classmethod
-    async def authenticate_user(cls, username: str, password: str) -> Optional[UserModel]:
+    async def authenticate_user(cls, email: str, password: str) -> Optional[UserModel]:
         async with async_session_maker() as session:
-            db_user = await UserDAO.find_one(session, username=username)
+            db_user = await UserDAO.find_one(session, email=email)
             if db_user and is_valid_password(password, db_user.hashed_password):
                 return db_user
             return None
@@ -127,7 +127,7 @@ class AuthService:
         to_encode = {
             'sub': str(user_id),
             'exp': datetime.utcnow() + timedelta(
-                minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES
+                minutes=int(config.ACCESS_TOKEN_EXPIRE_MINUTES)
             )
         }
         token = jwt.encode(

@@ -9,3 +9,8 @@ class InvalidTokenException(HTTPException):
 class TokenExpiredException(HTTPException):
     def __init__(self):
         super().__init__(status_code=status.HTTP_401_UNAUTHORIZED, detail='Token expired')
+
+
+class InvalidCredentialsException(HTTPException):
+    def __init__(self):
+        super().__init__(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid credentials')

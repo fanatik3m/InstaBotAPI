@@ -43,5 +43,5 @@ class RefreshSessionCreateSchema(BaseModel):
     user_id: uuid.UUID
 
 
-class RefreshSessionUpdateSchema(BaseModel):
+class RefreshSessionUpdateSchema(RefreshSessionCreateSchema):
     user_id: Optional[uuid.UUID] = Field(None)
