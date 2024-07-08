@@ -27,7 +27,6 @@ async def create_group(group: str, user: UserSchema = Depends(get_current_user))
         return e
 
 
-# make single task schema and require list of these single-one schemas
 @group_router.post('/tasks')
 async def create_task_for_group(group: str, tasks: List[SingleTaskCreateSchema],
                                 output: bool = True,
@@ -40,9 +39,9 @@ async def create_task_for_group(group: str, tasks: List[SingleTaskCreateSchema],
 
 
 @client_router.post('/login')
-async def login_client(username: str, password: str, user: UserSchema = Depends(get_current_user)):
+async def login_client(username: str, password: str, group: str, user: UserSchema = Depends(get_current_user)):
     try:
-        client_id = await ClientService.login_client(username, password, user.id)
+        client_id = await ClientService.login_client(username, password, group, user.id)
         return client_id
     except Exception as e:
         return e

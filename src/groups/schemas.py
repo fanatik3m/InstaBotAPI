@@ -17,7 +17,7 @@ class GroupBaseSchema(BaseModel):
 
 
 class GroupCreateDBSchema(GroupBaseSchema):
-    docker_name: str
+    docker_id: str
 
 
 class TaskCreateSchema(BaseModel):
@@ -30,14 +30,14 @@ class TaskCreateSchema(BaseModel):
 
 class SingleTaskCreateSchema(BaseModel):
     function_name: str
-    function_args: Union[List, Any]
+    function_args: List[List]
     iteration_count: int
 
     # function_args: [[arg1, arg2], [arg], [arg1, ..., arg n], ...]
 
 
 class ClientBaseSchema(BaseModel):
-    settings: Optional[Dict] = Field(None)
+    settings: Optional[str] = Field(None)
     user_id: Optional[uuid.UUID] = Field(None)
     group_id: Optional[uuid.UUID] = Field(None)
 

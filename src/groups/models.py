@@ -12,16 +12,17 @@ class GroupModel(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, index=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(128), index=True)
-    docker_name: Mapped[str] = mapped_column(String, unique=True)
+    docker_id: Mapped[str] = mapped_column(String, unique=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey('user.id', ondelete='CASCADE'))
 
-    __table_args__ = (UniqueConstraint('name', 'user_id', name='unique_name_user_id'))
+    __table_args__ = (UniqueConstraint('name', 'user_id', name='unique_name_user_id'), )
 
 
 class ClientModel(Base):
     __tablename__ = 'client'
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, index=True, default=uuid.uuid4)
-    settings: Mapped[dict] = mapped_column(JSON)
+    # settings: Mapped[dict] = mapped_column(JSON)
+    settings: Mapped[str] = mapped_column(String)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey('user.id', ondelete='CASCADE'))
     group_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey('group.id', ondelete='CASCADE'))
