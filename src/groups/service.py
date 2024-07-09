@@ -57,14 +57,19 @@ class GroupService:
 
             container = docker_client.containers.get(group.docker_id)
 
+            with open('groups/worker.py', 'r') as file:
+                command = file.read()
+
             for client in clients:
                 for task in tasks:
                     for i in range(task.iteration_count):
-                        exec_result = container.exec_run(
-                            ['worker.py', task.function_name, '-s', str(**client.settings), '-a',
-                             str(*task.function_args[i])])
+                        command = f'settings = {json.loads(client.settings)}\nargs={task.function_args[i]}\nfunction_name="{task.function_name}"\n{command}'.replace(
+                            "\'", '"')
+                        exec_result = container.exec_run(['python', '-c', command])
+                        # command = f'settings = {client.settings}\nargs={task.function_args[i]}\nfunction_name="{task.function_name}"\nclient = {Client()}\n{command}'
+                        # exec_result = container.exec_run(['python', '-c', command])
                         if output:
-                            result.append(exec_result[1].decode('utf-8'))
+                            result.append(exec_result.output.decode('utf-8')[:-1])
 
             return result if output else None
 
@@ -168,6 +173,34 @@ class ClientService:
             )
             result = client_db.id
             await session.commit()
+            return result
+
+    @classmethod
+    async def relogin_client(cls, client_id: uuid.UUID, username: str, password: str, user_id: uuid.UUID) -> uuid:
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            cl = Client()
+            old_settings = json.loads(client.settings)
+            cl.set_uuids(old_settings.get('uuids'))
+            cl.login(username, password)
+
+            new_settings = json.dumps(cl.get_settings())
+            client_updated = await ClientDAO.update(
+                session,
+                ClientModel.id == client.id,
+                obj={'settings': new_settings}
+            )
+            result = client_updated.id
             return result
 
     @classmethod

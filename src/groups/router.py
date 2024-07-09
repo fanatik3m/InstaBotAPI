@@ -72,6 +72,13 @@ async def login_client(username: str, password: str, group: str, user: UserSchem
         return e
 
 
+@client_router.post('/relogin')
+async def relogin_client(client_id: uuid.UUID, username: str, password: str,
+                         user: UserSchema = Depends(get_current_user)):
+    client_id = await ClientService.relogin_client(client_id, username, password, user.id)
+    return client_id
+
+
 @client_router.post('/tasks')
 async def create_task_for_client(client_id: uuid.UUID, group: str, tasks: List[SingleTaskCreateSchema],
                                  output: bool = True,
