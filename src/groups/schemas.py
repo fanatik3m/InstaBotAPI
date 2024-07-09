@@ -7,8 +7,11 @@ from pydantic import BaseModel, Field
 class GroupSchema(BaseModel):
     id: uuid.UUID
     name: str
-    docker_name: str
+    docker_id: str
     user_id: uuid.UUID
+
+    class Config:
+        from_attributes = True
 
 
 class GroupBaseSchema(BaseModel):
@@ -18,6 +21,10 @@ class GroupBaseSchema(BaseModel):
 
 class GroupCreateDBSchema(GroupBaseSchema):
     docker_id: str
+
+
+class GroupUpdateSchema(BaseModel):
+    name: str
 
 
 class TaskCreateSchema(BaseModel):
@@ -36,6 +43,16 @@ class SingleTaskCreateSchema(BaseModel):
     # function_args: [[arg1, arg2], [arg], [arg1, ..., arg n], ...]
 
 
+class ClientSchema(BaseModel):
+    id: uuid.UUID
+    settings: str
+    user_id: uuid.UUID
+    group_id: uuid.UUID
+
+    class Config:
+        from_attributes = True
+
+
 class ClientBaseSchema(BaseModel):
     settings: Optional[str] = Field(None)
     user_id: Optional[uuid.UUID] = Field(None)
@@ -44,3 +61,7 @@ class ClientBaseSchema(BaseModel):
 
 class ClientCreateDBSchema(ClientBaseSchema):
     pass
+
+
+class ClientUpdateSchema(BaseModel):
+    settings: str

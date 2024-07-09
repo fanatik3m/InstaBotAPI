@@ -7,7 +7,10 @@ import docker
 from instagrapi import Client
 
 from groups.dao import GroupDAO, ClientDAO
-from groups.schemas import GroupCreateDBSchema, TaskCreateSchema, ClientCreateDBSchema, SingleTaskCreateSchema
+from groups.schemas import GroupCreateDBSchema, TaskCreateSchema, ClientCreateDBSchema, SingleTaskCreateSchema, \
+    GroupSchema, GroupUpdateSchema, ClientSchema, ClientUpdateSchema
+from groups.models import GroupModel, ClientModel
+from groups.utils import Pagination
 from database import async_session_maker
 
 
@@ -64,6 +67,80 @@ class GroupService:
                             result.append(exec_result[1].decode('utf-8'))
 
             return result if output else None
+
+    @classmethod
+    async def get_groups(cls, page: int, user_id: uuid.UUID) -> Optional[List[GroupSchema]]:
+        limit: int = 10
+        offset: int = limit * (page - 1)
+
+        async with async_session_maker() as session:
+            groups = await GroupDAO.find_pagination(session, offset, offset, user_id=user_id)
+            if not groups:
+                return None
+
+            result = [group.to_schema() for group in groups]
+            return result
+
+    @classmethod
+    async def get_group_by_id(cls, group_id: uuid.UUID, user_id: uuid.UUID) -> GroupSchema:
+        async with async_session_maker() as session:
+            group = await GroupDAO.find_by_id(session, model_id=group_id)
+            if group is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Group not found'
+                )
+            if group.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            result = group.to_schema()
+            return result
+
+    @classmethod
+    async def edit_group_by_id(cls, group_id: uuid.UUID, group: GroupUpdateSchema, user_id: uuid.UUID) -> GroupSchema:
+        async with async_session_maker() as session:
+            group_db = await GroupDAO.find_by_id(session, model_id=group_id)
+            if group_db is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Group not found'
+                )
+            if group_db.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            group_updated = await GroupDAO.update(
+                session,
+                GroupModel.id == group_db.id,
+                obj=group
+            )
+            result = group_updated.to_schema()
+            return result
+
+    @classmethod
+    async def delete_group_by_id(cls, group_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        async with async_session_maker() as session:
+            group = await GroupDAO.delete(session, id=group_id)
+            if group is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Group not found'
+                )
+            if group.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            await ClientDAO.delete(session, group_id=group.id)
+            container_id = group.docker_id
+            await GroupDAO.delete(session, id=group.id)
+
+            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+            container = docker_client.containers.get(container_id)
+            container.stop()
+            container.remove()
 
 
 class ClientService:
@@ -130,4 +207,70 @@ class ClientService:
 
             return result if output else None
 
+    @classmethod
+    async def get_clients(cls, page: int, user_id: uuid.UUID) -> Optional[List[ClientSchema]]:
+        pagination = Pagination(page)
 
+        async with async_session_maker() as session:
+            clients = await ClientDAO.find_pagination(session, pagination.offset, pagination.limit, user_id=user_id)
+            if not clients:
+                return None
+
+            result = [client.to_schema() for client in clients]
+            return result
+
+    @classmethod
+    async def get_client_by_id(cls, client_id: uuid.UUID, user_id: uuid.UUID) -> ClientSchema:
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            result = client.to_schema()
+            return result
+
+    @classmethod
+    async def edit_client_by_id(cls, client_id: uuid.UUID, client: ClientUpdateSchema,
+                                user_id: uuid.UUID) -> ClientSchema:
+        async with async_session_maker() as session:
+            client_db = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client_db is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client_db.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            client_updated = await ClientDAO.update(
+                session,
+                ClientModel.id == client_db.id,
+                obj=client
+            )
+            result = client_updated.to_schema()
+            return result
+
+    @classmethod
+    async def delete_client_by_id(cls, client_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            await ClientDAO.delete(session, id=client.id)

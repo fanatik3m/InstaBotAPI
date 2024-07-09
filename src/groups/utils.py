@@ -7,3 +7,9 @@ class ParseKwargs(argparse.Action):
         for value in values:
             key, value = value.split('=')
             getattr(namespace, self.dest)[key] = value
+
+
+class Pagination:
+    def __init__(self, page: int):
+        self.limit: int = 10
+        self.offset: int = self.limit * (page - 1)

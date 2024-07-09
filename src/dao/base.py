@@ -19,6 +19,12 @@ class BaseDAO:
         return result.scalars().all()
 
     @classmethod
+    async def find_pagination(cls, session: AsyncSession, offset: int, limit: int, *filter, **filter_by):
+        query = select(cls.model).filter(*filter).filter_by(**filter_by).offset(offset).limit(limit)
+        result = await session.execute(query)
+        return result.scalars().all()
+
+    @classmethod
     async def find_one(cls, session: AsyncSession, *filter, **filter_by):
         query = select(cls.model).filter(*filter).filter_by(**filter_by)
         result = await session.execute(query)
