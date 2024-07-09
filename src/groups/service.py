@@ -10,7 +10,7 @@ from groups.dao import GroupDAO, ClientDAO
 from groups.schemas import GroupCreateDBSchema, TaskCreateSchema, ClientCreateDBSchema, SingleTaskCreateSchema, \
     GroupSchema, GroupUpdateSchema, ClientSchema, ClientUpdateSchema
 from groups.models import GroupModel, ClientModel
-from groups.utils import Pagination
+from groups.utils import Pagination, is_valid_proxy
 from database import async_session_maker
 
 
@@ -63,11 +63,13 @@ class GroupService:
             for client in clients:
                 for task in tasks:
                     for i in range(task.iteration_count):
-                        command = f'settings = {json.loads(client.settings)}\nargs={task.function_args[i]}\nfunction_name="{task.function_name}"\n{command}'.replace(
-                            "\'", '"')
+                        if client.proxy:
+                            command = f'settings = {json.loads(client.settings)}\nargs={task.function_args[i]}\nfunction_name="{task.function_name}"\nproxy="{client.proxy}"\n{command}'.replace(
+                                "\'", '"')
+                        else:
+                            command = f'settings = {json.loads(client.settings)}\nargs={task.function_args[i]}\nfunction_name="{task.function_name}"\nproxy=None\n{command}'.replace(
+                                "\'", '"')
                         exec_result = container.exec_run(['python', '-c', command])
-                        # command = f'settings = {client.settings}\nargs={task.function_args[i]}\nfunction_name="{task.function_name}"\nclient = {Client()}\n{command}'
-                        # exec_result = container.exec_run(['python', '-c', command])
                         if output:
                             result.append(exec_result.output.decode('utf-8')[:-1])
 
@@ -150,8 +152,12 @@ class GroupService:
 
 class ClientService:
     @classmethod
-    async def login_client(cls, username: str, password: str, group: str, user_id: uuid.UUID):
+    async def login_client(cls, username: str, password: str, group: str, proxy: Optional[str], user_id: uuid.UUID):
         client = Client()
+        if proxy is not None:
+            if is_valid_proxy(proxy):
+                client.set_proxy(proxy)
+
         client.login(username, password)
         settings = client.get_settings()
 
@@ -168,7 +174,8 @@ class ClientService:
                 ClientCreateDBSchema(
                     settings=json.dumps(settings),
                     user_id=user_id,
-                    group_id=group_db.id
+                    group_id=group_db.id,
+                    proxy=proxy
                 )
             )
             result = client_db.id
@@ -230,11 +237,15 @@ class ClientService:
 
             for task in tasks:
                 for i in range(task.iteration_count):
-                    command = f'settings = {json.loads(client.settings)}\nargs={task.function_args[i]}\nfunction_name="{task.function_name}"\n{command}'.replace(
-                        "\'", '"')
+                    if client.proxy:
+                        command = f'settings = {json.loads(client.settings)}\nargs={task.function_args[i]}\nfunction_name="{task.function_name}"\nproxy="{client.proxy}"\n{command}'.replace(
+                            "\'", '"')
+                    else:
+                        command = f'settings = {json.loads(client.settings)}\nargs={task.function_args[i]}\nfunction_name="{task.function_name}"\nproxy=None\n{command}'.replace(
+                            "\'", '"')
+                        # command = f'settings = {json.loads(client.settings)}\nargs={task.function_args[i]}\nfunction_name="{task.function_name}"\n{command}'.replace(
+                        #     "\'", '"')
                     exec_result = container.exec_run(['python', '-c', command])
-                    # command = f'settings = {client.settings}\nargs={task.function_args[i]}\nfunction_name="{task.function_name}"\nclient = {Client()}\n{command}'
-                    # exec_result = container.exec_run(['python', '-c', command])
                     if output:
                         result.append(exec_result.output.decode('utf-8')[:-1])
 

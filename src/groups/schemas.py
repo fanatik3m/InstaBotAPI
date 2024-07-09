@@ -60,8 +60,18 @@ class ClientBaseSchema(BaseModel):
 
 
 class ClientCreateDBSchema(ClientBaseSchema):
-    pass
+    proxy: Optional[str] = Field(None)
 
 
 class ClientUpdateSchema(BaseModel):
     settings: str
+
+
+class CredentialsSchema(BaseModel):
+    username: str
+    password: str
+
+
+class LoginClientSchema(CredentialsSchema):
+    group: str
+    proxy: Optional[str] = Field(None)

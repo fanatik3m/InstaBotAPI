@@ -1,13 +1,13 @@
 import uuid
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Body, Form
 
 from auth.dependencies import get_current_user
 from auth.schemas import UserSchema
 from groups.service import GroupService, ClientService
 from groups.schemas import TaskCreateSchema, SingleTaskCreateSchema, GroupSchema, GroupUpdateSchema, ClientSchema, \
-    ClientUpdateSchema
+    ClientUpdateSchema, CredentialsSchema, LoginClientSchema
 
 group_router = APIRouter(
     prefix='/groups',
@@ -20,7 +20,7 @@ client_router = APIRouter(
 
 
 @group_router.post('')
-async def create_group(group: str, user: UserSchema = Depends(get_current_user)):
+async def create_group(group: str = Body(...), user: UserSchema = Depends(get_current_user)):
     try:
         await GroupService.create_group(group, user.id)
         return f'Created group {group}'
@@ -48,7 +48,7 @@ async def edit_group_name_by_id(group_id: uuid.UUID, group: GroupUpdateSchema,
 
 
 @group_router.post('/tasks')
-async def create_task_for_group(group: str, tasks: List[SingleTaskCreateSchema],
+async def create_task_for_group(tasks: List[SingleTaskCreateSchema], group: str = Body(...),
                                 output: bool = True,
                                 user: UserSchema = Depends(get_current_user)):
     try:
@@ -64,23 +64,25 @@ async def delete_group_by_id(group_id: uuid.UUID, user: UserSchema = Depends(get
 
 
 @client_router.post('/login')
-async def login_client(username: str, password: str, group: str, user: UserSchema = Depends(get_current_user)):
+async def login_client(data: LoginClientSchema,
+                       user: UserSchema = Depends(get_current_user)):
     try:
-        client_id = await ClientService.login_client(username, password, group, user.id)
+        client_id = await ClientService.login_client(data.username, data.password, data.group, data.proxy, user.id)
         return client_id
     except Exception as e:
         return e
 
 
 @client_router.post('/relogin')
-async def relogin_client(client_id: uuid.UUID, username: str, password: str,
+async def relogin_client(credentials: CredentialsSchema, client_id: uuid.UUID = Body(...),
                          user: UserSchema = Depends(get_current_user)):
-    client_id = await ClientService.relogin_client(client_id, username, password, user.id)
+    client_id = await ClientService.relogin_client(client_id, credentials.username, credentials.password, user.id)
     return client_id
 
 
 @client_router.post('/tasks')
-async def create_task_for_client(client_id: uuid.UUID, group: str, tasks: List[SingleTaskCreateSchema],
+async def create_task_for_client(tasks: List[SingleTaskCreateSchema], client_id: uuid.UUID = Body(...),
+                                 group: str = Body(...),
                                  output: bool = True,
                                  user: UserSchema = Depends(get_current_user)):
     try:
