@@ -5,9 +5,11 @@ from fastapi import APIRouter, Depends, Body, Form
 
 from auth.dependencies import get_current_user
 from auth.schemas import UserSchema
+from groups.utils import add_text_randomize
 from groups.service import GroupService, ClientService
 from groups.schemas import TaskCreateSchema, SingleTaskCreateSchema, GroupSchema, GroupUpdateSchema, ClientSchema, \
-    ClientUpdateSchema, CredentialsSchema, LoginClientSchema
+    ClientUpdateSchema, CredentialsSchema, LoginClientSchema, FollowingResultSchema, FollowingRequestSchema
+from database import get_redis
 
 group_router = APIRouter(
     prefix='/groups',
@@ -78,6 +80,25 @@ async def relogin_client(credentials: CredentialsSchema, client_id: uuid.UUID = 
                          user: UserSchema = Depends(get_current_user)):
     client_id = await ClientService.relogin_client(client_id, credentials.username, credentials.password, user.id)
     return client_id
+
+
+@client_router.post('/follow/{client_id}')
+async def follow_users(client_id: uuid.UUID, data: FollowingRequestSchema, redis=Depends(get_redis),
+                       user: UserSchema = Depends(get_current_user)) -> FollowingResultSchema:
+    result = await ClientService.follow(client_id, data.users, data.timeout_from, data.timeout_to, user.id, redis)
+    return FollowingResultSchema(**result)
+
+
+@client_router.get('/status/{client_id}', dependencies=[Depends(get_current_user)])
+async def get_client_status(client_id: uuid.UUID, redis=Depends(get_redis)) -> str:
+    status = await ClientService.get_status(client_id, redis)
+    return status
+
+
+@client_router.post('/auto-reply', dependencies=[Depends(get_current_user)])
+async def get_auto_reply_str(text: str = Body(...)) -> List[str]:
+    result = add_text_randomize(text)
+    return result
 
 
 @client_router.post('/tasks')

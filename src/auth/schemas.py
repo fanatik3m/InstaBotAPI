@@ -8,8 +8,6 @@ from pydantic import BaseModel, Field
 class UserSchema(BaseModel):
     id: uuid.UUID
     username: str
-    fullname: str
-    email: str
     created_at: datetime.datetime
     updated_at: datetime.datetime
 

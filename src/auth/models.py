@@ -14,8 +14,6 @@ class UserModel(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, index=True, default=uuid.uuid4)
     username: Mapped[str] = mapped_column(String(128), unique=True, index=True)
-    fullname: Mapped[str]
-    email: Mapped[str] = mapped_column(unique=True)
     hashed_password: Mapped[str]
     created_at: Mapped[created_at]
     updated_at: Mapped[updated_at]
@@ -24,8 +22,6 @@ class UserModel(Base):
         return UserSchema(
             id=self.id,
             username=self.username,
-            fullname=self.fullname,
-            email=self.email,
             created_at=self.created_at,
             updated_at=self.updated_at
         )

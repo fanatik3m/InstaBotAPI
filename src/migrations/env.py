@@ -6,6 +6,7 @@ from sqlalchemy import pool
 from alembic import context
 
 from auth.models import UserModel
+from groups.models import GroupModel
 from config import DB_URL
 from database import Base
 

@@ -31,7 +31,6 @@ class ClientModel(Base):
     __tablename__ = 'client'
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, index=True, default=uuid.uuid4)
-    # settings: Mapped[dict] = mapped_column(JSON)
     settings: Mapped[str] = mapped_column(String)
     proxy: Mapped[str] = mapped_column(String, nullable=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey('user.id', ondelete='CASCADE'))

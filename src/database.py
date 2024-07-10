@@ -1,3 +1,4 @@
+import aioredis
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
@@ -13,3 +14,12 @@ engine = create_async_engine(
 )
 
 async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
+
+
+async def get_redis():
+    redis = await aioredis.from_url('redis://localhost')
+    try:
+        yield redis
+    finally:
+        await redis.close()
+    # await redis.connection_pool.disconnect()

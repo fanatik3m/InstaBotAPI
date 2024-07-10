@@ -1,4 +1,7 @@
 import argparse
+import re
+import random
+from typing import List
 
 import aiohttp
 
@@ -25,3 +28,13 @@ async def is_valid_proxy(proxy: str):
             if not response.headers.get('Via'):
                 return False
             return True
+
+
+def add_text_randomize(text: str) -> List[str]:
+    strs = re.findall(r'\{([^}]+)\}', text)
+    result_list = []
+    for st in strs:
+        res = re.sub(r"\((.*?)\)", lambda x: random.choice(x.group(1).split("|")), st)
+        result_list.append(res)
+
+    return result_list

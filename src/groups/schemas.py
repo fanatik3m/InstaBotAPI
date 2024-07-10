@@ -75,3 +75,15 @@ class CredentialsSchema(BaseModel):
 class LoginClientSchema(CredentialsSchema):
     group: str
     proxy: Optional[str] = Field(None)
+
+
+class FollowingResultSchema(BaseModel):
+    followed: int
+    total: int
+    errors: Dict
+
+
+class FollowingRequestSchema(BaseModel):
+    users: List[int]
+    timeout_from: int
+    timeout_to: int
