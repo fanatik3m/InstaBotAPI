@@ -1,5 +1,6 @@
 import uuid
-from typing import List, Optional
+from datetime import timedelta
+from typing import List, Optional, Dict
 
 from fastapi import APIRouter, Depends, Body, Form
 
@@ -95,10 +96,17 @@ async def get_client_status(client_id: uuid.UUID, redis=Depends(get_redis)) -> s
     return status
 
 
-@client_router.post('/auto-reply', dependencies=[Depends(get_current_user)])
-async def get_auto_reply_str(text: str = Body(...)) -> List[str]:
-    result = add_text_randomize(text)
-    return result
+@client_router.post('/auto-reply/{client_id}')
+async def start_auto_reply(client_id: uuid.UUID, text: str = Body(...), followers_no_talk_time: Dict = Body(...),
+                             # redis=Depends(get_redis),
+                             user: UserSchema = Depends(get_current_user)):
+    await ClientService.auto_reply(client_id, text, timedelta(**followers_no_talk_time), user.id)
+
+
+@client_router.put('/auto-reply/{client_id}')
+async def edit_auto_reply(client_id: uuid.UUID, text: str = Body(...), followers_no_talk_time: Dict = Body(...),
+                             user: UserSchema = Depends(get_current_user)):
+    await ClientService.edit_auto_reply(client_id, text, timedelta(**followers_no_talk_time), user.id)
 
 
 @client_router.post('/tasks')

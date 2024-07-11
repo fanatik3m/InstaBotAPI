@@ -1,6 +1,7 @@
 import uuid
 from typing import Optional, List, Dict
 import json
+from datetime import timedelta
 
 from fastapi import HTTPException, status
 import docker
@@ -10,7 +11,7 @@ from groups.dao import GroupDAO, ClientDAO
 from groups.schemas import GroupCreateDBSchema, TaskCreateSchema, ClientCreateDBSchema, SingleTaskCreateSchema, \
     GroupSchema, GroupUpdateSchema, ClientSchema, ClientUpdateSchema
 from groups.models import GroupModel, ClientModel
-from groups.utils import Pagination, is_valid_proxy
+from groups.utils import Pagination, is_valid_proxy, add_text_randomize
 from database import async_session_maker
 
 
@@ -265,6 +266,95 @@ class ClientService:
             await redis.set(str(client.id), 'active')
 
             return result
+
+    @classmethod
+    async def auto_reply(cls, client_id: uuid.UUID, text: str, no_dialogs_in: timedelta, user_id: uuid.UUID) -> None:
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+            if group.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            with open('groups/auto_reply_worker.py', 'r') as file:
+                command = file.read()
+
+            if client.proxy:
+                command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in.total_seconds()}\ntext="{text}"\nproxy="{client.proxy}"\n{command}'.replace(
+                    "\'", '"')
+            else:
+                command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in.total_seconds()}\ntext="{text}"\nproxy=None\n{command}'.replace(
+                    "\'", '"')
+
+            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+            container = docker_client.containers.get(group.docker_id)
+
+            # await redis.set(str(client.id), 'working')
+
+            exec_command = container.exec_run(['python', '-c', command], detach=True)
+            auto_reply_command_id = exec_command.id
+
+            await ClientDAO.update(
+                session,
+                ClientModel.id == client.id,
+                obj={'auto_reply_id': auto_reply_command_id}
+            )
+
+    @classmethod
+    async def edit_auto_reply(cls, client_id: uuid.UUID, text: str, no_dialogs_in: timedelta, user_id: uuid.UUID):
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+            if group.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+            container = docker_client.containers.get(group.docker_id)
+            container.exec_stop(client.auto_reply_id)
+
+            with open('groups/auto_reply_worker.py', 'r') as file:
+                command = file.read()
+
+            if client.proxy:
+                command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in.total_seconds()}\ntext="{text}"\nproxy="{client.proxy}"\n{command}'.replace(
+                    "\'", '"')
+            else:
+                command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in.total_seconds()}\ntext="{text}"\nproxy=None\n{command}'.replace(
+                    "\'", '"')
+
+            # await redis.set(str(client.id), 'working')
+
+            exec_command = container.exec_run(['python', '-c', command], detach=True)
+            auto_reply_command_id = exec_command.id
+
+            await ClientDAO.update(
+                session,
+                ClientModel.id == client.id,
+                obj={'auto_reply_id': auto_reply_command_id}
+            )
 
     @classmethod
     async def add_tasks(cls, client_id: uuid.UUID, group: str, tasks: List[SingleTaskCreateSchema], user_id: uuid.UUID,

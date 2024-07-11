@@ -33,6 +33,7 @@ class ClientModel(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, index=True, default=uuid.uuid4)
     settings: Mapped[str] = mapped_column(String)
     proxy: Mapped[str] = mapped_column(String, nullable=True)
+    auto_reply_id: Mapped[str] = mapped_column(String, nullable=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey('user.id', ondelete='CASCADE'))
     group_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey('group.id', ondelete='CASCADE'))
 

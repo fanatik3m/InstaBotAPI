@@ -3,7 +3,7 @@ import re
 import random
 from typing import List
 
-import aiohttp
+import requests
 
 
 class ParseKwargs(argparse.Action):
@@ -20,14 +20,15 @@ class Pagination:
         self.offset: int = self.limit * (page - 1)
 
 
-async def is_valid_proxy(proxy: str):
-    test_url: str = 'https://www.python.org/'
-
-    async with aiohttp.ClientSession() as session:
-        async with session.get(test_url, proxy=proxy) as response:
-            if not response.headers.get('Via'):
-                return False
-            return True
+def is_valid_proxy(proxy):
+    proxies = {
+        'https': f'socks5://{proxy}',
+    }
+    try:
+        response = requests.get('https://www.python.org/', proxies=proxies)
+        return True
+    except:
+        return False
 
 
 def add_text_randomize(text: str) -> List[str]:
