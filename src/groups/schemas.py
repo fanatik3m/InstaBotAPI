@@ -65,6 +65,7 @@ class ClientCreateDBSchema(ClientBaseSchema):
 
 class ClientUpdateSchema(BaseModel):
     settings: str
+    description: str
 
 
 class CredentialsSchema(BaseModel):

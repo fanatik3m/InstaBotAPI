@@ -31,6 +31,7 @@ class ClientModel(Base):
     __tablename__ = 'client'
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, index=True, default=uuid.uuid4)
+    description: Mapped[str] = mapped_column(String)
     settings: Mapped[str] = mapped_column(String)
     proxy: Mapped[str] = mapped_column(String, nullable=True)
     auto_reply_id: Mapped[str] = mapped_column(String, nullable=True)

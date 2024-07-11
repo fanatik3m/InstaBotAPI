@@ -98,14 +98,14 @@ async def get_client_status(client_id: uuid.UUID, redis=Depends(get_redis)) -> s
 
 @client_router.post('/auto-reply/{client_id}')
 async def start_auto_reply(client_id: uuid.UUID, text: str = Body(...), followers_no_talk_time: Dict = Body(...),
-                             # redis=Depends(get_redis),
-                             user: UserSchema = Depends(get_current_user)):
+                           # redis=Depends(get_redis),
+                           user: UserSchema = Depends(get_current_user)):
     await ClientService.auto_reply(client_id, text, timedelta(**followers_no_talk_time), user.id)
 
 
 @client_router.put('/auto-reply/{client_id}')
 async def edit_auto_reply(client_id: uuid.UUID, text: str = Body(...), followers_no_talk_time: Dict = Body(...),
-                             user: UserSchema = Depends(get_current_user)):
+                          user: UserSchema = Depends(get_current_user)):
     await ClientService.edit_auto_reply(client_id, text, timedelta(**followers_no_talk_time), user.id)
 
 
@@ -134,8 +134,8 @@ async def get_client_by_id(client_id: uuid.UUID, user: UserSchema = Depends(get_
 
 
 @client_router.put('/{client_id}')
-async def edit_client_settings_by_id(client_id: uuid.UUID, client: ClientUpdateSchema,
-                                     user: UserSchema = Depends(get_current_user)) -> ClientSchema:
+async def edit_client_by_id(client_id: uuid.UUID, client: ClientUpdateSchema,
+                            user: UserSchema = Depends(get_current_user)) -> ClientSchema:
     client = await ClientService.edit_client_by_id(client_id, client, user.id)
     return client
 
