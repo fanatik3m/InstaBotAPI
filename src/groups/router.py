@@ -69,7 +69,7 @@ async def delete_group_by_id(group_id: uuid.UUID, user: UserSchema = Depends(get
 @client_router.post('/login')
 async def login_client(data: LoginClientSchema,
                        user: UserSchema = Depends(get_current_user)):
-    client_id = await ClientService.login_client(data.username, data.password, data.group, data.proxy, user.id)
+    client_id = await ClientService.login_client(data.username, data.password, data.group, data.description, data.proxy, user.id)
     return client_id
 
 
@@ -82,7 +82,7 @@ async def relogin_client(credentials: CredentialsSchema, client_id: uuid.UUID = 
 
 @client_router.post('/follow/{client_id}')
 async def follow_users(client_id: uuid.UUID, data: FollowingRequestSchema, redis=Depends(get_redis),
-                       user: UserSchema = Depends(get_current_user)) -> FollowingResultSchema:
+                       user: UserSchema = Depends(get_current_user)):
     result = await ClientService.follow(client_id, data.users, data.timeout_from, data.timeout_to, user.id, redis)
     return result
 
@@ -100,10 +100,10 @@ async def start_auto_reply(client_id: uuid.UUID, text: str = Body(...), follower
     await ClientService.auto_reply(client_id, text, followers_no_talk_time, user.id)
 
 
-# @client_router.put('/auto-reply/{client_id}')
-# async def edit_auto_reply(client_id: uuid.UUID, text: str = Body(...), followers_no_talk_time: Dict = Body(...),
-#                           user: UserSchema = Depends(get_current_user)):
-#     await ClientService.edit_auto_reply(client_id, text, followers_no_talk_time, user.id)
+@client_router.put('/auto-reply/{client_id}')
+async def edit_auto_reply(client_id: uuid.UUID, text: str = Body(...), followers_no_talk_time: Dict = Body(...),
+                          user: UserSchema = Depends(get_current_user)):
+    await ClientService.edit_auto_reply(client_id, text, followers_no_talk_time, user.id)
 
 
 @client_router.post('/tasks')

@@ -45,7 +45,9 @@ class SingleTaskCreateSchema(BaseModel):
 
 class ClientSchema(BaseModel):
     id: uuid.UUID
+    description: Optional[str]
     settings: str
+    auto_reply_id: str
     user_id: uuid.UUID
     group_id: uuid.UUID
 
@@ -61,11 +63,12 @@ class ClientBaseSchema(BaseModel):
 
 class ClientCreateDBSchema(ClientBaseSchema):
     proxy: Optional[str] = Field(None)
+    description: Optional[str] = Field(None)
 
 
 class ClientUpdateSchema(BaseModel):
-    settings: str
-    description: str
+    settings: Optional[str] = Field(None)
+    description: Optional[str] = Field(None)
 
 
 class CredentialsSchema(BaseModel):
@@ -76,6 +79,7 @@ class CredentialsSchema(BaseModel):
 class LoginClientSchema(CredentialsSchema):
     group: str
     proxy: Optional[str] = Field(None)
+    description: Optional[str] = Field(None)
 
 
 class FollowingResultSchema(BaseModel):

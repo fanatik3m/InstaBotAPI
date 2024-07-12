@@ -19,7 +19,7 @@ class GroupService:
     @classmethod
     async def create_group(cls, name: str, user_id: uuid.UUID) -> None:
         docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
-        container = docker_client.containers.run('python:3.10', detach=True, tty=True)
+        container = docker_client.containers.run('python:3.10-alpine3.19', detach=True, tty=True)
         container.exec_run('pip install instagrapi Pillow>=8.1', detach=True)
 
         async with async_session_maker() as session:
@@ -153,7 +153,7 @@ class GroupService:
 
 class ClientService:
     @classmethod
-    async def login_client(cls, username: str, password: str, group: str, proxy: Optional[str], user_id: uuid.UUID):
+    async def login_client(cls, username: str, password: str, group: str, description: Optional[str], proxy: Optional[str], user_id: uuid.UUID):
         client = Client()
         if proxy is not None:
             if is_valid_proxy(proxy):
@@ -173,6 +173,7 @@ class ClientService:
             client_db = await ClientDAO.add(
                 session,
                 ClientCreateDBSchema(
+                    description=description,
                     settings=json.dumps(settings),
                     user_id=user_id,
                     group_id=group_db.id,
@@ -302,13 +303,14 @@ class ClientService:
 
             # await redis.set(str(client.id), 'working')
 
-            exec_command = container.exec_run(['python', '-c', command], detach=True)
-            auto_reply_command_id = exec_command.id
+            container.exec_run(['python', '-c', command], detach=True)
+            ps = container.exec_run('ps aux').output.decode('utf-8')
+            pid = ps.splitlines()[-2].strip()[:4].strip()
 
             await ClientDAO.update(
                 session,
                 ClientModel.id == client.id,
-                obj={'auto_reply_id': auto_reply_command_id}
+                obj={'auto_reply_id': pid}
             )
 
     @classmethod
@@ -333,7 +335,7 @@ class ClientService:
 
             docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
             container = docker_client.containers.get(group.docker_id)
-            container.exec_stop(client.auto_reply_id)
+            container.exec_run(f'kill {client.auto_reply_id}')
 
             with open('groups/auto_reply_worker.py', 'r') as file:
                 command = file.read()
@@ -348,12 +350,13 @@ class ClientService:
             # await redis.set(str(client.id), 'working')
 
             exec_command = container.exec_run(['python', '-c', command], detach=True)
-            auto_reply_command_id = exec_command.id
+            ps = container.exec_run('ps aux').output.decode('utf-8')
+            pid = ps.splitlines()[-2].strip()[:4].strip()
 
             await ClientDAO.update(
                 session,
                 ClientModel.id == client.id,
-                obj={'auto_reply_id': auto_reply_command_id}
+                obj={'auto_reply_id': pid}
             )
 
     @classmethod

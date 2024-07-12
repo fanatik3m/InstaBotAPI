@@ -34,14 +34,16 @@ class ClientModel(Base):
     description: Mapped[str] = mapped_column(String, nullable=True)
     settings: Mapped[str] = mapped_column(String)
     proxy: Mapped[str] = mapped_column(String, nullable=True)
-    # auto_reply_id: Mapped[str] = mapped_column(String, nullable=True)
+    auto_reply_id: Mapped[str] = mapped_column(String, nullable=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey('user.id', ondelete='CASCADE'))
     group_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey('group.id', ondelete='CASCADE'))
 
     def to_schema(self):
         return ClientSchema(
             id=self.id,
+            description=self.description,
             settings=self.settings,
+            auto_reply_id=self.auto_reply_id,
             user_id=self.user_id,
             group_id=self.group_id
         )
