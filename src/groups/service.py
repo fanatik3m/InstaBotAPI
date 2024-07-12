@@ -157,7 +157,7 @@ class ClientService:
         client = Client()
         if proxy is not None:
             if is_valid_proxy(proxy):
-                client.set_proxy(proxy)
+                client.set_proxy(f'socks5://{proxy}')
 
         client.login(username, password)
         settings = client.get_settings()
@@ -254,11 +254,11 @@ class ClientService:
 
             exec_result = container.exec_run(['python', '-c', command])
             errors = exec_result.output.decode('utf-8')
-            errors_count = len(errors)
+            errors_count = len(errors.keys())
             users_count = len(users)
 
             result = {
-                'followed': users_count - errors_count,
+                'followed': users_count - errors_count if (users_count - errors_count) > 0 else 0,
                 'total': users_count,
                 'errors': errors
             }
@@ -268,7 +268,7 @@ class ClientService:
             return result
 
     @classmethod
-    async def auto_reply(cls, client_id: uuid.UUID, text: str, no_dialogs_in: timedelta, user_id: uuid.UUID) -> None:
+    async def auto_reply(cls, client_id: uuid.UUID, text: str, no_dialogs_in: int, user_id: uuid.UUID) -> None:
         async with async_session_maker() as session:
             client = await ClientDAO.find_by_id(session, model_id=client_id)
             if client is None:
@@ -291,10 +291,10 @@ class ClientService:
                 command = file.read()
 
             if client.proxy:
-                command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in.total_seconds()}\ntext="{text}"\nproxy="{client.proxy}"\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in}\ntext="{text}"\nproxy="{client.proxy}"\n{command}'.replace(
                     "\'", '"')
             else:
-                command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in.total_seconds()}\ntext="{text}"\nproxy=None\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in}\ntext="{text}"\nproxy=None\n{command}'.replace(
                     "\'", '"')
 
             docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
@@ -312,7 +312,7 @@ class ClientService:
             )
 
     @classmethod
-    async def edit_auto_reply(cls, client_id: uuid.UUID, text: str, no_dialogs_in: timedelta, user_id: uuid.UUID):
+    async def edit_auto_reply(cls, client_id: uuid.UUID, text: str, no_dialogs_in: int, user_id: uuid.UUID):
         async with async_session_maker() as session:
             client = await ClientDAO.find_by_id(session, model_id=client_id)
             if client is None:
@@ -339,10 +339,10 @@ class ClientService:
                 command = file.read()
 
             if client.proxy:
-                command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in.total_seconds()}\ntext="{text}"\nproxy="{client.proxy}"\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in}\ntext="{text}"\nproxy="{client.proxy}"\n{command}'.replace(
                     "\'", '"')
             else:
-                command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in.total_seconds()}\ntext="{text}"\nproxy=None\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in}\ntext="{text}"\nproxy=None\n{command}'.replace(
                     "\'", '"')
 
             # await redis.set(str(client.id), 'working')

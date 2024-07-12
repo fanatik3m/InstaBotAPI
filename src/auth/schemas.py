@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 class UserSchema(BaseModel):
     id: uuid.UUID
     username: str
+    email: str
     created_at: datetime.datetime
     updated_at: datetime.datetime
 
@@ -17,7 +18,6 @@ class UserSchema(BaseModel):
 
 class UserBaseSchema(BaseModel):
     username: Optional[str] = Field(None)
-    fullname: Optional[str] = Field(None)
     email: Optional[str] = Field(None)
 
 

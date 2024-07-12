@@ -69,11 +69,8 @@ async def delete_group_by_id(group_id: uuid.UUID, user: UserSchema = Depends(get
 @client_router.post('/login')
 async def login_client(data: LoginClientSchema,
                        user: UserSchema = Depends(get_current_user)):
-    try:
-        client_id = await ClientService.login_client(data.username, data.password, data.group, data.proxy, user.id)
-        return client_id
-    except Exception as e:
-        return e
+    client_id = await ClientService.login_client(data.username, data.password, data.group, data.proxy, user.id)
+    return client_id
 
 
 @client_router.post('/relogin')
@@ -87,7 +84,7 @@ async def relogin_client(credentials: CredentialsSchema, client_id: uuid.UUID = 
 async def follow_users(client_id: uuid.UUID, data: FollowingRequestSchema, redis=Depends(get_redis),
                        user: UserSchema = Depends(get_current_user)) -> FollowingResultSchema:
     result = await ClientService.follow(client_id, data.users, data.timeout_from, data.timeout_to, user.id, redis)
-    return FollowingResultSchema(**result)
+    return result
 
 
 @client_router.get('/status/{client_id}', dependencies=[Depends(get_current_user)])
@@ -100,13 +97,13 @@ async def get_client_status(client_id: uuid.UUID, redis=Depends(get_redis)) -> s
 async def start_auto_reply(client_id: uuid.UUID, text: str = Body(...), followers_no_talk_time: Dict = Body(...),
                            # redis=Depends(get_redis),
                            user: UserSchema = Depends(get_current_user)):
-    await ClientService.auto_reply(client_id, text, timedelta(**followers_no_talk_time), user.id)
+    await ClientService.auto_reply(client_id, text, followers_no_talk_time, user.id)
 
 
-@client_router.put('/auto-reply/{client_id}')
-async def edit_auto_reply(client_id: uuid.UUID, text: str = Body(...), followers_no_talk_time: Dict = Body(...),
-                          user: UserSchema = Depends(get_current_user)):
-    await ClientService.edit_auto_reply(client_id, text, timedelta(**followers_no_talk_time), user.id)
+# @client_router.put('/auto-reply/{client_id}')
+# async def edit_auto_reply(client_id: uuid.UUID, text: str = Body(...), followers_no_talk_time: Dict = Body(...),
+#                           user: UserSchema = Depends(get_current_user)):
+#     await ClientService.edit_auto_reply(client_id, text, followers_no_talk_time, user.id)
 
 
 @client_router.post('/tasks')
@@ -121,25 +118,25 @@ async def create_task_for_client(tasks: List[SingleTaskCreateSchema], client_id:
         return e
 
 
-@client_router.get('')
+@client_router.get('/operations/')
 async def get_self_clients(page: int = 1, user: UserSchema = Depends(get_current_user)) -> Optional[List[ClientSchema]]:
     clients = await ClientService.get_clients(page, user.id)
     return clients
 
 
-@client_router.get('/{client_id}')
+@client_router.get('/operations/{client_id}')
 async def get_client_by_id(client_id: uuid.UUID, user: UserSchema = Depends(get_current_user)) -> ClientSchema:
     client = await ClientService.get_client_by_id(client_id, user.id)
     return client
 
 
-@client_router.put('/{client_id}')
+@client_router.put('/operations/{client_id}')
 async def edit_client_by_id(client_id: uuid.UUID, client: ClientUpdateSchema,
                             user: UserSchema = Depends(get_current_user)) -> ClientSchema:
     client = await ClientService.edit_client_by_id(client_id, client, user.id)
     return client
 
 
-@client_router.delete('/{client_id}')
+@client_router.delete('/operations/{client_id}')
 async def delete_client_by_id(client_id: uuid.UUID, user: UserSchema = Depends(get_current_user)) -> None:
     await ClientService.delete_client_by_id(client_id, user.id)
