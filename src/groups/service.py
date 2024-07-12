@@ -82,7 +82,7 @@ class GroupService:
         offset: int = limit * (page - 1)
 
         async with async_session_maker() as session:
-            groups = await GroupDAO.find_pagination(session, offset, offset, user_id=user_id)
+            groups = await GroupDAO.find_pagination(session, offset, limit, user_id=user_id)
             if not groups:
                 return None
 
@@ -125,6 +125,8 @@ class GroupService:
                 obj=group
             )
             result = group_updated.to_schema()
+            await session.commit()
+
             return result
 
     @classmethod
@@ -144,6 +146,7 @@ class GroupService:
             await ClientDAO.delete(session, group_id=group.id)
             container_id = group.docker_id
             await GroupDAO.delete(session, id=group.id)
+            await session.commit()
 
             docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
             container = docker_client.containers.get(container_id)
@@ -163,7 +166,7 @@ class ClientService:
         settings = client.get_settings()
 
         async with async_session_maker() as session:
-            group_db = await GroupDAO.find_one(session, name=group)
+            group_db = await GroupDAO.find_one(session, name=group, user_id=user_id)
             if group_db is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -210,6 +213,8 @@ class ClientService:
                 obj={'settings': new_settings}
             )
             result = client_updated.id
+            await session.commit()
+
             return result
 
     @classmethod
@@ -305,13 +310,14 @@ class ClientService:
 
             container.exec_run(['python', '-c', command], detach=True)
             ps = container.exec_run('ps aux').output.decode('utf-8')
-            pid = ps.splitlines()[-2].strip()[:4].strip()
+            pid = ps.splitlines()[-2].strip()[:3].strip()
 
             await ClientDAO.update(
                 session,
                 ClientModel.id == client.id,
                 obj={'auto_reply_id': pid}
             )
+            await session.commit()
 
     @classmethod
     async def edit_auto_reply(cls, client_id: uuid.UUID, text: str, no_dialogs_in: int, user_id: uuid.UUID):
@@ -351,13 +357,14 @@ class ClientService:
 
             exec_command = container.exec_run(['python', '-c', command], detach=True)
             ps = container.exec_run('ps aux').output.decode('utf-8')
-            pid = ps.splitlines()[-2].strip()[:4].strip()
+            pid = ps.splitlines()[-2].strip()[:3].strip()
 
             await ClientDAO.update(
                 session,
                 ClientModel.id == client.id,
                 obj={'auto_reply_id': pid}
             )
+            await session.commit()
 
     @classmethod
     async def add_tasks(cls, client_id: uuid.UUID, group: str, tasks: List[SingleTaskCreateSchema], user_id: uuid.UUID,
@@ -450,6 +457,8 @@ class ClientService:
                 obj=client
             )
             result = client_updated.to_schema()
+            await session.commit()
+
             return result
 
     @classmethod
@@ -467,3 +476,4 @@ class ClientService:
                 )
 
             await ClientDAO.delete(session, id=client.id)
+            await session.commit()
