@@ -156,7 +156,8 @@ class GroupService:
 
 class ClientService:
     @classmethod
-    async def login_client(cls, username: str, password: str, group: str, description: Optional[str], proxy: Optional[str], user_id: uuid.UUID):
+    async def login_client(cls, username: str, password: str, group: str, description: Optional[str],
+                           proxy: Optional[str], user_id: uuid.UUID):
         client = Client()
         if proxy is not None:
             if is_valid_proxy(proxy):
@@ -316,6 +317,107 @@ class ClientService:
             result = {
                 'liked': users_count - errors_count if (users_count - errors_count) > 0 else 0,
                 'total': users_count,
+                'errors': errors
+            }
+
+            await redis.set(str(client.id), 'active')
+
+            return result
+
+    @classmethod
+    async def reels_like(cls, client_id: uuid.UUID, users_ids: List[int], amount: int, redis, user_id: uuid.UUID):
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+            if group.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+            container = docker_client.containers.get(group.docker_id)
+
+            await redis.set(str(client.id), 'working')
+
+            with open('groups/reels_like_worker.py', 'r') as file:
+                command = file.read()
+
+            if client.proxy:
+                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\namount={amount}\nproxy="{client.proxy}"\n{command}'.replace(
+                    "\'", '"')
+            else:
+                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\namount={amount}\nproxy=None\n{command}'.replace(
+                    "\'", '"')
+
+            exec_result = container.exec_run(['python', '-c', command])
+            errors = exec_result.output.decode('utf-8')
+            errors_count = len(errors.keys())
+            users_count = len(users_ids)
+
+            result = {
+                'liked': users_count - errors_count if (users_count - errors_count) > 0 else 0,
+                'total': users_count,
+                'errors': errors
+            }
+
+            await redis.set(str(client.id), 'active')
+
+            return result
+
+    @classmethod
+    async def hashtags_like(cls, client_id: uuid.UUID, hashtags: List[str], amount: int, worker_path: str, redis,
+                            user_id: uuid.UUID):
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+            if group.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+            container = docker_client.containers.get(group.docker_id)
+
+            await redis.set(str(client.id), 'working')
+
+            with open(worker_path, 'r') as file:
+                command = file.read()
+
+            if client.proxy:
+                command = f'settings = {json.loads(client.settings)}\nhashtags={hashtags}\namount={amount}\nproxy="{client.proxy}"\n{command}'.replace(
+                    "\'", '"')
+            else:
+                command = f'settings = {json.loads(client.settings)}\nhashtags={hashtags}\namount={amount}\nproxy=None\n{command}'.replace(
+                    "\'", '"')
+
+            exec_result = container.exec_run(['python', '-c', command])
+            errors = exec_result.output.decode('utf-8')
+            errors_count = len(errors.keys())
+            hashtags_count = len(hashtags)
+
+            result = {
+                'liked': hashtags_count - errors_count if (hashtags_count - errors_count) > 0 else 0,
+                'total': hashtags_count,
                 'errors': errors
             }
 

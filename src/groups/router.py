@@ -115,9 +115,33 @@ async def like_stories(client_id: uuid.UUID, users_ids: List[int] = Body(...), r
 
 
 @client_router.post('/posts/like/{client_id}')
-async def first_post_like(client_id: uuid.UUID, users_ids: List[int], redis=Depends(get_redis),
+async def first_post_like(client_id: uuid.UUID, users_ids: List[int] = Body(...), redis=Depends(get_redis),
                           user: UserSchema = Depends(get_current_user)):
     result = await ClientService.first_post_like(client_id, users_ids, redis, user.id)
+    return result
+
+
+@client_router.post('/reels/like/{client_id}')
+async def reels_like(client_id: uuid.UUID, users_ids: List[int] = Body(...), amount: int = 20, redis=Depends(get_redis),
+                     user: UserSchema = Depends(get_current_user)):
+    result = await ClientService.reels_like(client_id, users_ids, amount, redis, user.id)
+    return result
+
+
+@client_router.post('/hashtags/posts/like/{client_id}')
+async def hashtags_like(client_id: uuid.UUID, hashtags: List[str] = Body(...), amount: int = 20,
+                        redis=Depends(get_redis), user: UserSchema = Depends(get_current_user)):
+    result = await ClientService.hashtags_like(client_id, hashtags, amount, 'groups/hashtags_posts_like_worker.py',
+                                               redis, user.id)
+    return result
+
+
+@client_router.post('/hashtags/reels/like/{client_id}')
+async def hashtags_reels_like(client_id: uuid.UUID, hashtags: List[str] = Body(...), amount: int = 20,
+                              redis=Depends(get_redis), user: UserSchema = Depends(get_current_user)):
+    result = await ClientService.hashtags_like(client_id, hashtags, amount,
+                                               'groups/hashtags_reels_like_worker.py',
+                                               redis, user.id)
     return result
 
 
