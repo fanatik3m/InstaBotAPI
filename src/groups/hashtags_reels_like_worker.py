@@ -12,7 +12,8 @@ client.delay_range = [1, 5]
 
 errors = {}
 for hashtag in hashtags:
-    posts = client.hashtag_medias_v1_chunk(hashtag, max_amount=20, tab_key='clips')[0]
+    # posts = client.hashtag_medias_v1_chunk(hashtag, max_amount=20, tab_key='clips')[0]
+    posts = client.hashtag_medias_reels_v1(hashtag, amount=amount)
     try:
         for post in posts:
             client.media_like(post.id)

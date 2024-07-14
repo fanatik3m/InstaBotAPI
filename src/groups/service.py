@@ -426,6 +426,100 @@ class ClientService:
             return result
 
     @classmethod
+    async def user_followings(cls, client_id: uuid.UUID, users_ids: List[int], amount: int, redis, user_id: uuid.UUID):
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+            if group.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+            container = docker_client.containers.get(group.docker_id)
+
+            await redis.set(str(client.id), 'working')
+
+            with open('groups/followings_parse_worker.py', 'r') as file:
+                command = file.read()
+
+            if client.proxy:
+                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\namount={amount}\nproxy="{client.proxy}"\n{command}'.replace(
+                    "\'", '"')
+            else:
+                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\namount={amount}\nproxy=None\n{command}'.replace(
+                    "\'", '"')
+
+            exec_result = container.exec_run(['python', '-c', command])
+            callback = exec_result.output.decode('utf-8')
+
+            result = {
+                'parsed': callback.get('parsed'),
+                'errors': callback.get('error')
+            }
+
+            await redis.set(str(client.id), 'active')
+
+            return result
+
+    @classmethod
+    async def user_followers(cls, client_id: uuid.UUID, users_ids: List[int], amount: int, redis, user_id: uuid.UUID):
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+            if group.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+            container = docker_client.containers.get(group.docker_id)
+
+            await redis.set(str(client.id), 'working')
+
+            with open('groups/followers_parse_worker.py', 'r') as file:
+                command = file.read()
+
+            if client.proxy:
+                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\namount={amount}\nproxy="{client.proxy}"\n{command}'.replace(
+                    "\'", '"')
+            else:
+                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\namount={amount}\nproxy=None\n{command}'.replace(
+                    "\'", '"')
+
+            exec_result = container.exec_run(['python', '-c', command])
+            callback = exec_result.output.decode('utf-8')
+
+            result = {
+                'parsed': callback.get('parsed'),
+                'errors': callback.get('error')
+            }
+
+            await redis.set(str(client.id), 'active')
+
+            return result
+
+    @classmethod
     async def auto_reply(cls, client_id: uuid.UUID, text: str, no_dialogs_in: Dict, user_id: uuid.UUID) -> None:
         async with async_session_maker() as session:
             client = await ClientDAO.find_by_id(session, model_id=client_id)
@@ -468,6 +562,55 @@ class ClientService:
                 session,
                 ClientModel.id == client.id,
                 obj={'auto_reply_id': pid}
+            )
+            await session.commit()
+
+    @classmethod
+    async def get_auto_reply(cls, client_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            if client.auto_reply_id is not None:
+                return True
+            return False
+
+    @classmethod
+    async def delete_auto_reply(cls, client_id: uuid.UUID, user_id: uuid.UUID):
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+            if group.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+            container = docker_client.containers.get(group.docker_id)
+            container.exec_run(f'kill {client.auto_reply_id}')
+
+            await ClientDAO.update(
+                session,
+                ClientModel.id == client.id,
+                obj={'auto_reply_id': None}
             )
             await session.commit()
 

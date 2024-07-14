@@ -107,6 +107,17 @@ async def edit_auto_reply(client_id: uuid.UUID, text: str = Body(...), followers
     await ClientService.edit_auto_reply(client_id, text, followers_no_talk_time, user.id)
 
 
+@client_router.delete('/auto-reply/{client_id}')
+async def delete_auto_reply(client_id: uuid.UUID, user: UserSchema = Depends(get_current_user)):
+    await ClientService.delete_auto_reply(client_id, user.id)
+
+
+@client_router.get('/auto-reply/{client_id}')
+async def get_has_client_auto_reply(client_id: uuid.UUID, user: UserSchema = Depends(get_current_user)) -> bool:
+    result = await ClientService.get_auto_reply(client_id, user.id)
+    return result
+
+
 @client_router.post('/stories/like/{client_id}')
 async def like_stories(client_id: uuid.UUID, users_ids: List[int] = Body(...), redis=Depends(get_redis),
                        user: UserSchema = Depends(get_current_user)):
@@ -142,6 +153,20 @@ async def hashtags_reels_like(client_id: uuid.UUID, hashtags: List[str] = Body(.
     result = await ClientService.hashtags_like(client_id, hashtags, amount,
                                                'groups/hashtags_reels_like_worker.py',
                                                redis, user.id)
+    return result
+
+
+@client_router.post('/users/followings/{client_id}')
+async def get_user_followings(client_id: uuid.UUID, users_ids: List[int] = Body(...), amount: int = 20,
+                              redis=Depends(get_redis), user: UserSchema = Depends(get_current_user)):
+    result = await ClientService.user_followings(client_id, users_ids, amount, redis, user.id)
+    return result
+
+
+@client_router.post('/users/followings/{client_id}')
+async def get_user_followers(client_id: uuid.UUID, users_ids: List[int] = Body(...), amount: int = 20,
+                             redis=Depends(get_redis), user: UserSchema = Depends(get_current_user)):
+    result = await ClientService.user_followers(client_id, users_ids, amount, redis, user.id)
     return result
 
 
