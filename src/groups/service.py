@@ -462,6 +462,7 @@ class ClientService:
 
             exec_result = container.exec_run(['python', '-c', command])
             callback = exec_result.output.decode('utf-8')
+            callback = eval(callback[:-1])
 
             result = {
                 'parsed': callback.get('parsed'),

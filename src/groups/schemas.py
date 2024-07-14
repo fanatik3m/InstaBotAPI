@@ -47,7 +47,7 @@ class ClientSchema(BaseModel):
     id: uuid.UUID
     description: Optional[str]
     settings: str
-    auto_reply_id: str
+    auto_reply_id: Optional[str]
     user_id: uuid.UUID
     group_id: uuid.UUID
 

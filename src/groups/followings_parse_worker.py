@@ -16,7 +16,7 @@ try:
         result[user_id] = list(followings.keys())
 except Exception as e:
     callback = {
-        'error': e,
+        'error': str(e),
         'parsed': result
     }
     print(callback)
