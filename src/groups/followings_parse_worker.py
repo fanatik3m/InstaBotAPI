@@ -20,3 +20,9 @@ except Exception as e:
         'parsed': result
     }
     print(callback)
+else:
+    callback = {
+        'error': None,
+        'parsed': result
+    }
+    print(callback)

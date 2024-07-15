@@ -16,7 +16,13 @@ try:
         result[user_id] = list(followers.keys())
 except Exception as e:
     callback = {
-        'error': e,
+        'error': str(e),
+        'parsed': result
+    }
+    print(callback)
+else:
+    callback = {
+        'error': None,
         'parsed': result
     }
     print(callback)

@@ -169,7 +169,7 @@ async def get_user_followings(client_id: uuid.UUID, data: UsersIdsTimeoutSchema,
     return result
 
 
-@client_router.post('/users/followings/{client_id}')
+@client_router.post('/users/followers/{client_id}')
 async def get_user_followers(client_id: uuid.UUID, data: UsersIdsTimeoutSchema, amount: int = 20,
                              redis=Depends(get_redis), user: UserSchema = Depends(get_current_user)):
     result = await ClientService.user_followers(client_id, data.users_ids, data.timeout_from, data.timeout_to, amount,

@@ -12,6 +12,8 @@ client.set_settings(settings)
 if proxy is not None:
     client.set_proxy(f'socks5://{proxy}')
 
+client.delay_range = [2, 7]
+
 no_dialogs_in = timedelta(**no_dialogs_in)
 
 self_user_id = client.account_info().pk
