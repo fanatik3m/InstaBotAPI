@@ -8,7 +8,7 @@ settings = literal_eval(str(settings))
 client.set_settings(settings)
 if proxy is not None:
     client.set_proxy(f'socks5://{proxy}')
-client.delay_range = [1, 5]
+client.delay_range = [timeout_from, timeout_to]
 
 errors = {}
 for user_id in users_ids:

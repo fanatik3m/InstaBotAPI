@@ -89,6 +89,19 @@ class FollowingResultSchema(BaseModel):
 
 
 class FollowingRequestSchema(BaseModel):
-    users: List[int]
+    users: List[str]
     timeout_from: int
     timeout_to: int
+
+
+class TimeoutSchema(BaseModel):
+    timeout_from: int
+    timeout_to: int
+
+
+class UsersIdsTimeoutSchema(TimeoutSchema):
+    users_ids: List[str]
+
+
+class HashtagsTimeoutSchema(TimeoutSchema):
+    hashtags: List[str]

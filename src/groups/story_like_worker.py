@@ -6,13 +6,25 @@ settings = literal_eval(str(settings))
 client.set_settings(settings)
 if proxy is not None:
     client.set_proxy(f'socks5://{proxy}')
-client.delay_range = [1, 5]
+client.delay_range = [timeout_from, timeout_to]
 
 liked_count = 0
 
-for user_id in users_ids:
-    stories = client.user_stories(user_id)
-    for story in stories:
-        client.story_like(story.id)
-        liked_count += 1
-print(liked_count)
+try:
+    for user_id in users_ids:
+        stories = client.user_stories(user_id)
+        for story in stories:
+            client.story_like(story.id)
+            liked_count += 1
+except Exception as e:
+    callback = {
+        'liked': liked_count,
+        'error': str(e)
+    }
+    print(callback)
+else:
+    callback = {
+        'liked': liked_count,
+        'error': None
+    }
+    print(callback)

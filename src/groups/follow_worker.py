@@ -10,7 +10,7 @@ if proxy is not None:
 client.delay_range = [timeout_from, timeout_to]
 
 errors = {}
-for user_id in users_id:
+for user_id in users_ids:
     try:
         client.user_follow(user_id)
     except Exception as e:
