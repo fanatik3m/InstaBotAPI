@@ -6,6 +6,7 @@ from datetime import timedelta
 from fastapi import HTTPException, status
 import docker
 from instagrapi import Client
+from instagrapi.types import HttpUrl
 
 from groups.dao import GroupDAO, ClientDAO
 from groups.schemas import GroupCreateDBSchema, TaskCreateSchema, ClientCreateDBSchema, SingleTaskCreateSchema, \
@@ -164,6 +165,8 @@ class ClientService:
                 client.set_proxy(f'socks5://{proxy}')
 
         client.login(username, password)
+        user_photo = client.user_info_by_username_v1(username).profile_pic_url
+        photo_url = f'{user_photo.scheme}://{user_photo.host}:{user_photo.port}{user_photo.path}?{user_photo.query}'
         settings = client.get_settings()
 
         async with async_session_maker() as session:
@@ -177,6 +180,8 @@ class ClientService:
             client_db = await ClientDAO.add(
                 session,
                 ClientCreateDBSchema(
+                    username=username,
+                    photo=photo_url,
                     description=description,
                     settings=json.dumps(settings),
                     user_id=user_id,

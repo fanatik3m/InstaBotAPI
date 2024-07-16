@@ -45,6 +45,8 @@ class SingleTaskCreateSchema(BaseModel):
 
 class ClientSchema(BaseModel):
     id: uuid.UUID
+    username: str
+    photo: Optional[str]
     description: Optional[str]
     settings: str
     auto_reply_id: Optional[str]
@@ -62,6 +64,8 @@ class ClientBaseSchema(BaseModel):
 
 
 class ClientCreateDBSchema(ClientBaseSchema):
+    username: Optional[str] = Field(None)
+    photo: Optional[str] = Field(None)
     proxy: Optional[str] = Field(None)
     description: Optional[str] = Field(None)
 
