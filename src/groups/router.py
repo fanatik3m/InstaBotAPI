@@ -162,17 +162,17 @@ async def hashtags_reels_like(client_id: uuid.UUID, data: HashtagsTimeoutSchema,
 
 
 @client_router.post('/users/followings/{client_id}')
-async def get_user_followings(client_id: uuid.UUID, data: UsersIdsTimeoutSchema, amount: int = 20,
+async def get_user_followings(client_id: uuid.UUID, users_ids: List[str] = Body(...), amount: int = 20,
                               redis=Depends(get_redis), user: UserSchema = Depends(get_current_user)):
-    result = await ClientService.user_followings(client_id, data.users_ids, data.timeout_from, data.timeout_to, amount,
+    result = await ClientService.user_followings(client_id, users_ids, amount,
                                                  redis, user.id)
     return result
 
 
 @client_router.post('/users/followers/{client_id}')
-async def get_user_followers(client_id: uuid.UUID, data: UsersIdsTimeoutSchema, amount: int = 20,
+async def get_user_followers(client_id: uuid.UUID, users_ids: List[str] = Body(...), amount: int = 20,
                              redis=Depends(get_redis), user: UserSchema = Depends(get_current_user)):
-    result = await ClientService.user_followers(client_id, data.users_ids, data.timeout_from, data.timeout_to, amount,
+    result = await ClientService.user_followers(client_id, users_ids, amount,
                                                 redis, user.id)
     return result
 

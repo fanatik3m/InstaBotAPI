@@ -433,7 +433,7 @@ class ClientService:
             return result
 
     @classmethod
-    async def user_followings(cls, client_id: uuid.UUID, users_ids: List[str], timeout_from: int, timeout_to: int,
+    async def user_followings(cls, client_id: uuid.UUID, users_ids: List[str],
                               amount: int, redis, user_id: uuid.UUID):
         async with async_session_maker() as session:
             client = await ClientDAO.find_by_id(session, model_id=client_id)
@@ -462,10 +462,10 @@ class ClientService:
                 command = file.read()
 
             if client.proxy:
-                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\namount={amount}\nproxy="{client.proxy}"\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\namount={amount}\nproxy="{client.proxy}"\n{command}'.replace(
                     "\'", '"')
             else:
-                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\namount={amount}\nproxy=None\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\namount={amount}\nproxy=None\n{command}'.replace(
                     "\'", '"')
 
             exec_result = container.exec_run(['python', '-c', command])
@@ -482,7 +482,7 @@ class ClientService:
             return result
 
     @classmethod
-    async def user_followers(cls, client_id: uuid.UUID, users_ids: List[str], timeout_from: int, timeout_to: int,
+    async def user_followers(cls, client_id: uuid.UUID, users_ids: List[str],
                              amount: int, redis, user_id: uuid.UUID):
         async with async_session_maker() as session:
             client = await ClientDAO.find_by_id(session, model_id=client_id)
@@ -511,10 +511,10 @@ class ClientService:
                 command = file.read()
 
             if client.proxy:
-                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\namount={amount}\nproxy="{client.proxy}"\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\namount={amount}\nproxy="{client.proxy}"\n{command}'.replace(
                     "\'", '"')
             else:
-                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\namount={amount}\nproxy=None\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\namount={amount}\nproxy=None\n{command}'.replace(
                     "\'", '"')
 
             exec_result = container.exec_run(['python', '-c', command])
