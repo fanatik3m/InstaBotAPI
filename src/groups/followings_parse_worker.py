@@ -11,9 +11,10 @@ client.delay_range = [1, 3]
 
 result = {}
 try:
-    for user_id in users_ids:
+    for user in users:
+        user_id = client.user_info_by_username_v1(user).pk
         followings = client.user_following(user_id, amount=amount)
-        result[user_id] = list(followings.keys())
+        result[user] = [value.username for _, value in followings.items()]
 except Exception as e:
     callback = {
         'error': str(e),

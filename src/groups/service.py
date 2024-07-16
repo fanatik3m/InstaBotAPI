@@ -253,10 +253,10 @@ class ClientService:
                 command = file.read()
 
             if client.proxy:
-                command = f'settings = {json.loads(client.settings)}\nusers_ids={users}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\nproxy="{client.proxy}"\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nusers={users}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\nproxy="{client.proxy}"\n{command}'.replace(
                     "\'", '"')
             else:
-                command = f'settings = {json.loads(client.settings)}\nusers_ids={users}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\nproxy=None\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nusers={users}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\nproxy=None\n{command}'.replace(
                     "\'", '"')
 
             exec_result = container.exec_run(['python', '-c', command])
@@ -276,7 +276,7 @@ class ClientService:
             return result
 
     @classmethod
-    async def first_post_like(cls, client_id: uuid.UUID, users_ids: List[str], timeout_from: int, timeout_to: int,
+    async def first_post_like(cls, client_id: uuid.UUID, users: List[str], timeout_from: int, timeout_to: int,
                               redis, user_id: uuid.UUID):
         async with async_session_maker() as session:
             client = await ClientDAO.find_by_id(session, model_id=client_id)
@@ -305,17 +305,17 @@ class ClientService:
                 command = file.read()
 
             if client.proxy:
-                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\nproxy="{client.proxy}"\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nusers={users}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\nproxy="{client.proxy}"\n{command}'.replace(
                     "\'", '"')
             else:
-                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\nproxy=None\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nusers={users}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\nproxy=None\n{command}'.replace(
                     "\'", '"')
 
             exec_result = container.exec_run(['python', '-c', command])
             errors = exec_result.output.decode('utf-8')
             errors = eval(errors[:-1])
             errors_count = len(errors.keys())
-            users_count = len(users_ids)
+            users_count = len(users)
 
             result = {
                 'liked': users_count - errors_count if (users_count - errors_count) > 0 else 0,
@@ -328,7 +328,7 @@ class ClientService:
             return result
 
     @classmethod
-    async def reels_like(cls, client_id: uuid.UUID, users_ids: List[str], timeout_from: int, timeout_to: int,
+    async def reels_like(cls, client_id: uuid.UUID, users: List[str], timeout_from: int, timeout_to: int,
                          amount: int, redis, user_id: uuid.UUID):
         async with async_session_maker() as session:
             client = await ClientDAO.find_by_id(session, model_id=client_id)
@@ -357,17 +357,17 @@ class ClientService:
                 command = file.read()
 
             if client.proxy:
-                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\namount={amount}\nproxy="{client.proxy}"\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nusers={users}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\namount={amount}\nproxy="{client.proxy}"\n{command}'.replace(
                     "\'", '"')
             else:
-                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\namount={amount}\nproxy=None\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nusers={users}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\namount={amount}\nproxy=None\n{command}'.replace(
                     "\'", '"')
 
             exec_result = container.exec_run(['python', '-c', command])
             errors = exec_result.output.decode('utf-8')
             errors = eval(errors[:-1])
             errors_count = len(errors.keys())
-            users_count = len(users_ids)
+            users_count = len(users)
 
             result = {
                 'liked': users_count - errors_count if (users_count - errors_count) > 0 else 0,
@@ -433,7 +433,7 @@ class ClientService:
             return result
 
     @classmethod
-    async def user_followings(cls, client_id: uuid.UUID, users_ids: List[str],
+    async def user_followings(cls, client_id: uuid.UUID, users: List[str],
                               amount: int, redis, user_id: uuid.UUID):
         async with async_session_maker() as session:
             client = await ClientDAO.find_by_id(session, model_id=client_id)
@@ -462,10 +462,10 @@ class ClientService:
                 command = file.read()
 
             if client.proxy:
-                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\namount={amount}\nproxy="{client.proxy}"\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nusers={users}\namount={amount}\nproxy="{client.proxy}"\n{command}'.replace(
                     "\'", '"')
             else:
-                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\namount={amount}\nproxy=None\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nusers={users}\namount={amount}\nproxy=None\n{command}'.replace(
                     "\'", '"')
 
             exec_result = container.exec_run(['python', '-c', command])
@@ -482,7 +482,7 @@ class ClientService:
             return result
 
     @classmethod
-    async def user_followers(cls, client_id: uuid.UUID, users_ids: List[str],
+    async def user_followers(cls, client_id: uuid.UUID, users: List[str],
                              amount: int, redis, user_id: uuid.UUID):
         async with async_session_maker() as session:
             client = await ClientDAO.find_by_id(session, model_id=client_id)
@@ -511,10 +511,10 @@ class ClientService:
                 command = file.read()
 
             if client.proxy:
-                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\namount={amount}\nproxy="{client.proxy}"\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nusers={users}\namount={amount}\nproxy="{client.proxy}"\n{command}'.replace(
                     "\'", '"')
             else:
-                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\namount={amount}\nproxy=None\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nusers={users}\namount={amount}\nproxy=None\n{command}'.replace(
                     "\'", '"')
 
             exec_result = container.exec_run(['python', '-c', command])
@@ -673,7 +673,7 @@ class ClientService:
             await session.commit()
 
     @classmethod
-    async def like_stories(cls, client_id: uuid.UUID, users_ids: List[str], timeout_from: int, timeout_to: int, redis,
+    async def like_stories(cls, client_id: uuid.UUID, users: List[str], timeout_from: int, timeout_to: int, redis,
                            user_id: uuid.UUID):
         async with async_session_maker() as session:
             client = await ClientDAO.find_by_id(session, model_id=client_id)
@@ -702,16 +702,16 @@ class ClientService:
                 command = file.read()
 
             if client.proxy:
-                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\nproxy="{client.proxy}"\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nusers={users}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\nproxy="{client.proxy}"\n{command}'.replace(
                     "\'", '"')
             else:
-                command = f'settings = {json.loads(client.settings)}\nusers_ids={users_ids}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\nproxy=None\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nusers={users}\ntimeout_from={timeout_from}\ntimeout_to={timeout_to}\nproxy=None\n{command}'.replace(
                     "\'", '"')
 
             exec_result = container.exec_run(['python', '-c', command])
             callback = exec_result.output.decode('utf-8')
             callback = eval(callback[:-1])
-            users_count = len(users_ids)
+            users_count = len(users)
 
             result = {
                 'liked': callback.get('liked_count'),

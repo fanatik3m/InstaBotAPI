@@ -10,9 +10,10 @@ if proxy is not None:
 client.delay_range = [timeout_from, timeout_to]
 
 errors = {}
-for user_id in users_ids:
+for user in users:
     try:
+        user_id = client.user_info_by_username_v1(user).pk
         client.user_follow(user_id)
     except Exception as e:
-        errors[user_id] = str(e)
+        errors[user] = str(e)
 print(errors)

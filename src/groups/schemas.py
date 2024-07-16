@@ -100,7 +100,7 @@ class TimeoutSchema(BaseModel):
 
 
 class UsersIdsTimeoutSchema(TimeoutSchema):
-    users_ids: List[str]
+    users: List[str]
 
 
 class HashtagsTimeoutSchema(TimeoutSchema):

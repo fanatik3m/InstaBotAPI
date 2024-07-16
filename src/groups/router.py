@@ -122,7 +122,7 @@ async def get_has_client_auto_reply(client_id: uuid.UUID, user: UserSchema = Dep
 @client_router.post('/stories/like/{client_id}')
 async def like_stories(client_id: uuid.UUID, data: UsersIdsTimeoutSchema, redis=Depends(get_redis),
                        user: UserSchema = Depends(get_current_user)):
-    result = await ClientService.like_stories(client_id, data.users_ids, data.timeout_from, data.timeout_to, redis,
+    result = await ClientService.like_stories(client_id, data.users, data.timeout_from, data.timeout_to, redis,
                                               user.id)
     return result
 
@@ -130,7 +130,7 @@ async def like_stories(client_id: uuid.UUID, data: UsersIdsTimeoutSchema, redis=
 @client_router.post('/posts/like/{client_id}')
 async def first_post_like(client_id: uuid.UUID, data: UsersIdsTimeoutSchema, redis=Depends(get_redis),
                           user: UserSchema = Depends(get_current_user)):
-    result = await ClientService.first_post_like(client_id, data.users_ids, data.timeout_from, data.timeout_to, redis,
+    result = await ClientService.first_post_like(client_id, data.users, data.timeout_from, data.timeout_to, redis,
                                                  user.id)
     return result
 
@@ -138,7 +138,7 @@ async def first_post_like(client_id: uuid.UUID, data: UsersIdsTimeoutSchema, red
 @client_router.post('/reels/like/{client_id}')
 async def reels_like(client_id: uuid.UUID, data: UsersIdsTimeoutSchema, amount: int = 20, redis=Depends(get_redis),
                      user: UserSchema = Depends(get_current_user)):
-    result = await ClientService.reels_like(client_id, data.users_ids, data.timeout_from, data.timeout_to, amount,
+    result = await ClientService.reels_like(client_id, data.users, data.timeout_from, data.timeout_to, amount,
                                             redis, user.id)
     return result
 
@@ -162,17 +162,17 @@ async def hashtags_reels_like(client_id: uuid.UUID, data: HashtagsTimeoutSchema,
 
 
 @client_router.post('/users/followings/{client_id}')
-async def get_user_followings(client_id: uuid.UUID, users_ids: List[str] = Body(...), amount: int = 20,
+async def get_user_followings(client_id: uuid.UUID, users: List[str] = Body(...), amount: int = 20,
                               redis=Depends(get_redis), user: UserSchema = Depends(get_current_user)):
-    result = await ClientService.user_followings(client_id, users_ids, amount,
+    result = await ClientService.user_followings(client_id, users, amount,
                                                  redis, user.id)
     return result
 
 
 @client_router.post('/users/followers/{client_id}')
-async def get_user_followers(client_id: uuid.UUID, users_ids: List[str] = Body(...), amount: int = 20,
+async def get_user_followers(client_id: uuid.UUID, users: List[str] = Body(...), amount: int = 20,
                              redis=Depends(get_redis), user: UserSchema = Depends(get_current_user)):
-    result = await ClientService.user_followers(client_id, users_ids, amount,
+    result = await ClientService.user_followers(client_id, users, amount,
                                                 redis, user.id)
     return result
 

@@ -11,7 +11,8 @@ client.delay_range = [timeout_from, timeout_to]
 liked_count = 0
 
 try:
-    for user_id in users_ids:
+    for user in users:
+        user_id = client.user_info_by_username_v1(user).pk
         stories = client.user_stories(user_id)
         for story in stories:
             client.story_like(story.id)
