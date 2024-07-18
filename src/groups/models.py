@@ -7,7 +7,7 @@ from sqlalchemy import String, ForeignKey, UniqueConstraint, JSON
 
 from groups.utils import Status
 from groups.orm_annotates import time_start
-from groups.schemas import GroupSchema, ClientSchema
+from groups.schemas import GroupSchema, ClientSchema, TaskSchema
 from database import Base
 
 
@@ -66,3 +66,14 @@ class TaskModel(Base):
     errors: Mapped[str] = mapped_column(String, nullable=True)
     output: Mapped[str] = mapped_column(String, nullable=True)
     client_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey('client.id', ondelete='CASCADE'))
+
+    def to_schema(self):
+        return TaskSchema(
+            id=self.id,
+            status=self.status,
+            time_start=self.time_start,
+            time_end=self.time_end,
+            errors=self.errors,
+            output=self.output,
+            client_id=self.client_id
+        )

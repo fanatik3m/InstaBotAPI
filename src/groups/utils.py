@@ -47,3 +47,9 @@ class Status(Enum):
     stopped = 'stopped'
     paused = 'paused'
     finished = 'finished'
+
+
+class ActionType(Enum):
+    people = 'people'
+    hashtag = 'hashtag'
+    parse = 'parse'

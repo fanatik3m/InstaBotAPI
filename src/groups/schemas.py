@@ -4,7 +4,7 @@ from typing import Optional, Dict, List, Union, Any
 
 from pydantic import BaseModel, Field
 
-from groups.utils import Status
+from groups.utils import Status, ActionType
 
 
 class GroupSchema(BaseModel):
@@ -129,11 +129,17 @@ class TaskSchema(BaseModel):
 
 class TaskBaseSchema(BaseModel):
     status: Optional[Status] = Field(None)
-    client_id: Optional[uuid.UUID] = Field(None)
 
 
 class TaskCreateSchema(TaskBaseSchema):
-    pass
+    client_id: Optional[uuid.UUID] = Field(None)
+    type: Optional[ActionType] = Field(None)
+
+
+class TaskUpdateSchema(TaskBaseSchema):
+    errors: Optional[str] = Field(None)
+    logs: Optional[str] = Field(None)
+    time_end: Optional[datetime.datetime] = Field(None)
 
 
 class PeopleTaskRequestSchema(BaseModel):

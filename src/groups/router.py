@@ -2,7 +2,7 @@ import uuid
 from datetime import timedelta
 from typing import List, Optional, Dict
 
-from fastapi import APIRouter, Depends, Body, Form
+from fastapi import APIRouter, Depends, Body, Form, Request
 
 from auth.dependencies import get_current_user
 from auth.schemas import UserSchema
@@ -10,7 +10,7 @@ from groups.utils import add_text_randomize
 from groups.service import GroupService, ClientService
 from groups.schemas import TaskCreateSchema, SingleTaskCreateSchema, GroupSchema, GroupUpdateSchema, ClientSchema, \
     ClientUpdateSchema, CredentialsSchema, LoginClientSchema, UsersIdsTimeoutSchema, FollowingRequestSchema, \
-    HashtagsTimeoutSchema, PeopleTaskRequestSchema
+    HashtagsTimeoutSchema, PeopleTaskRequestSchema, TaskUpdateSchema
 from database import get_redis
 
 group_router = APIRouter(
@@ -82,10 +82,47 @@ async def relogin_client(credentials: CredentialsSchema, client_id: uuid.UUID = 
     return client_id
 
 
-@client_router.post('/people/task/{client_id}')
-async def create_people_task(client_id: uuid.UUID, data: PeopleTaskRequestSchema, redis=Depends(get_redis),
-                             user: UserSchema = Depends(get_current_user)):
-    await ClientService.create_people_task(client_id, data, redis, user.id)
+@client_router.post('/people/tasks/start/{client_id}')
+async def create_people_task(client_id: uuid.UUID, request: Request, data: PeopleTaskRequestSchema,
+                             redis=Depends(get_redis),
+                             user: UserSchema = Depends(get_current_user)) -> uuid.UUID:
+    task_id = await ClientService.create_people_task(client_id, data, request.base_url, redis, user.id)
+    return task_id
+
+
+@client_router.post('/people/tasks/pause/{task_id}')
+async def pause_people_task(task_id: uuid.UUID, client_id: uuid.UUID = Body(...), redis=Depends(get_redis),
+                            user: UserSchema = Depends(get_current_user)):
+    await ClientService.pause_people_task(task_id, client_id, redis, user.id)
+
+
+@client_router.post('/people/tasks/restart/{task_id}')
+async def restart_people_task(task_id: uuid.UUID, client_id: uuid.UUID = Body(...), redis=Depends(get_redis),
+                              user: UserSchema = Depends(get_current_user)):
+    await ClientService.restart_people_task(task_id, client_id, redis, user.id)
+
+
+@client_router.post('/people/tasks/stop/{task_id}')
+async def stop_people_task(task_id: uuid.UUID, client_id: uuid.UUID = Body(...), redis=Depends(get_redis),
+                           user: UserSchema = Depends(get_current_user)):
+    await ClientService.stop_people_task(task_id, client_id, redis, user.id)
+
+
+@client_router.put('/tasks/{task_id}')
+async def edit_task(task_id: uuid.UUID, task: TaskUpdateSchema, redis=Depends(get_redis)):
+    await ClientService.edit_task(task_id, task, redis)
+
+
+@client_router.get('/tasks/client/{client_id}')
+async def get_self_task(client_id: uuid.UUID, page: int = 1, user: UserSchema = Depends(get_current_user)):
+    result = await ClientService.get_tasks(client_id, page, user.id)
+    return result
+
+
+@client_router.get('/tasks/{task_id}')
+async def get_detail_task(task_id: uuid.UUID, user: UserSchema = Depends(get_current_user)):
+    result = await ClientService.detail_task(task_id, user.id)
+    return result
 
 
 @client_router.post('/follow/{client_id}')
