@@ -10,7 +10,7 @@ from groups.utils import add_text_randomize
 from groups.service import GroupService, ClientService
 from groups.schemas import TaskCreateSchema, SingleTaskCreateSchema, GroupSchema, GroupUpdateSchema, ClientSchema, \
     ClientUpdateSchema, CredentialsSchema, LoginClientSchema, UsersIdsTimeoutSchema, FollowingRequestSchema, \
-    HashtagsTimeoutSchema
+    HashtagsTimeoutSchema, PeopleTaskRequestSchema
 from database import get_redis
 
 group_router = APIRouter(
@@ -80,6 +80,12 @@ async def relogin_client(credentials: CredentialsSchema, client_id: uuid.UUID = 
                          user: UserSchema = Depends(get_current_user)):
     client_id = await ClientService.relogin_client(client_id, credentials.username, credentials.password, user.id)
     return client_id
+
+
+@client_router.post('/people/task/{client_id}')
+async def create_people_task(client_id: uuid.UUID, data: PeopleTaskRequestSchema, redis=Depends(get_redis),
+                             user: UserSchema = Depends(get_current_user)):
+    await ClientService.create_people_task(client_id, data, redis, user.id)
 
 
 @client_router.post('/follow/{client_id}')

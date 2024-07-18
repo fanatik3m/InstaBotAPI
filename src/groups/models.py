@@ -1,9 +1,12 @@
+import datetime
 import uuid
 
 from sqlalchemy.orm import mapped_column, Mapped
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ENUM
 from sqlalchemy import String, ForeignKey, UniqueConstraint, JSON
 
+from groups.utils import Status
+from groups.orm_annotates import time_start
 from groups.schemas import GroupSchema, ClientSchema
 from database import Base
 
@@ -43,9 +46,23 @@ class ClientModel(Base):
     def to_schema(self):
         return ClientSchema(
             id=self.id,
+            username=self.username,
+            photo=self.photo,
             description=self.description,
             settings=self.settings,
             auto_reply_id=self.auto_reply_id,
             user_id=self.user_id,
             group_id=self.group_id
         )
+
+
+class TaskModel(Base):
+    __tablename__ = 'task'
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, index=True, default=uuid.uuid4)
+    status: Mapped[Status]
+    time_start: Mapped[time_start]
+    time_end: Mapped[datetime.datetime] = mapped_column(nullable=True)
+    errors: Mapped[str] = mapped_column(String, nullable=True)
+    output: Mapped[str] = mapped_column(String, nullable=True)
+    client_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey('client.id', ondelete='CASCADE'))

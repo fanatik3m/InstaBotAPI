@@ -8,9 +8,9 @@ import docker
 from instagrapi import Client
 from instagrapi.types import HttpUrl
 
-from groups.dao import GroupDAO, ClientDAO
+from groups.dao import GroupDAO, ClientDAO, TaskDAO
 from groups.schemas import GroupCreateDBSchema, TaskCreateSchema, ClientCreateDBSchema, SingleTaskCreateSchema, \
-    GroupSchema, GroupUpdateSchema, ClientSchema, ClientUpdateSchema
+    GroupSchema, GroupUpdateSchema, ClientSchema, ClientUpdateSchema, PeopleTaskRequestSchema
 from groups.models import GroupModel, ClientModel
 from groups.utils import Pagination, is_valid_proxy, add_text_randomize
 from database import async_session_maker
@@ -222,6 +222,53 @@ class ClientService:
             await session.commit()
 
             return result
+
+    @classmethod
+    async def create_people_task(cls, client_id: uuid.UUID, data: PeopleTaskRequestSchema, redis,
+                                 user_id: uuid.UUID) -> None:
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+            if group.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+            container = docker_client.containers.get(group.docker_id)
+
+            await TaskDAO.add(
+                session,
+                TaskCreateSchema(
+                    status='working',
+                    client_id=client_id
+                )
+            )
+            await session.commit()
+
+            await redis.set(str(client.id), 'working')
+
+            with open('groups/people_worker.py', 'r') as file:
+                command = file.read()
+
+            if client.proxy:
+                command = f'settings = {json.loads(client.settings)}\nusers={data.users}\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy="{client.proxy}"\n{command}'.replace(
+                    "\'", '"')
+            else:
+                command = f'settings = {json.loads(client.settings)}\nusers={data.users}\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy=None\n{command}'.replace(
+                    "\'", '"')
+
+            exec_result = container.exec_run(['python', '-c', command], detach=True)
 
     @classmethod
     async def get_status(cls, client_id: uuid.UUID, redis) -> str:

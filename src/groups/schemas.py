@@ -1,7 +1,10 @@
+import datetime
 import uuid
 from typing import Optional, Dict, List, Union, Any
 
 from pydantic import BaseModel, Field
+
+from groups.utils import Status
 
 
 class GroupSchema(BaseModel):
@@ -27,12 +30,12 @@ class GroupUpdateSchema(BaseModel):
     name: str
 
 
-class TaskCreateSchema(BaseModel):
-    group_name: str
-    function_names: List
-    args: List
-    execution_count: int
-    output: bool
+# class TaskCreateSchema(BaseModel):
+#     group_name: str
+#     function_names: List
+#     args: List
+#     execution_count: int
+#     output: bool
 
 
 class SingleTaskCreateSchema(BaseModel):
@@ -109,3 +112,38 @@ class UsersIdsTimeoutSchema(TimeoutSchema):
 
 class HashtagsTimeoutSchema(TimeoutSchema):
     hashtags: List[str]
+
+
+class TaskSchema(BaseModel):
+    id: uuid.UUID
+    status: Status
+    time_start: datetime.datetime
+    time_end: Optional[datetime.datetime]
+    errors: Optional[str]
+    output: Optional[str]
+    client_id: uuid.UUID
+
+    class Config:
+        from_attributes = True
+
+
+class TaskBaseSchema(BaseModel):
+    status: Optional[Status] = Field(None)
+    client_id: Optional[uuid.UUID] = Field(None)
+
+
+class TaskCreateSchema(TaskBaseSchema):
+    pass
+
+
+class PeopleTaskRequestSchema(BaseModel):
+    users: List[str]
+    timeout_from: int
+    timeout_to: int
+    follow: bool
+    stories_like: bool
+    stories_amount: Optional[int] = Field(None)
+    posts_like: bool
+    posts_amount: Optional[int] = Field(None)
+    reels_like: bool
+    reels_amount: Optional[int] = Field(None)

@@ -2,6 +2,7 @@ import argparse
 import re
 import random
 from typing import List
+from enum import Enum
 
 import requests
 
@@ -39,3 +40,10 @@ def add_text_randomize(text: str) -> List[str]:
         result_list.append(res)
 
     return result_list
+
+
+class Status(Enum):
+    working = 'working'
+    stopped = 'stopped'
+    paused = 'paused'
+    finished = 'finished'

@@ -1,5 +1,5 @@
 from dao.base import BaseDAO
-from groups.models import GroupModel, ClientModel
+from groups.models import GroupModel, ClientModel, TaskModel
 
 
 class GroupDAO(BaseDAO):
@@ -8,3 +8,7 @@ class GroupDAO(BaseDAO):
 
 class ClientDAO(BaseDAO):
     model = ClientModel
+
+
+class TaskDAO(BaseDAO):
+    model = TaskModel
