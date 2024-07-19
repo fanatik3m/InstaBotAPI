@@ -22,7 +22,7 @@ class GroupService:
     async def create_group(cls, name: str, user_id: uuid.UUID) -> None:
         docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
         container = docker_client.containers.run('python:3.10-alpine3.19', detach=True, tty=True, network_mode='host')
-        container.exec_run('pip install instagrapi Pillow>=8.1', detach=True)
+        container.exec_run('pip install instagrapi Pillow>=8.1 requests', detach=True)
 
         async with async_session_maker() as session:
             await GroupDAO.add(

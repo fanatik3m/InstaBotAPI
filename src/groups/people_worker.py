@@ -41,8 +41,16 @@ def handle_term(sign, frame):
     exit()
 
 
-signal.signal(signal.SIGSTOP, handle_stop)
+def handle_resume(sign, frame):
+    json_data = {
+        'status': 'working',
+    }
+    requests.put(url, json=json_data)
+
+
+signal.signal(signal.SIGTSTP, handle_stop)
 signal.signal(signal.SIGTERM, handle_term)
+signal.signal(signal.SIGCONT, handle_resume)
 
 for user in users:
     logs[user] = {}
