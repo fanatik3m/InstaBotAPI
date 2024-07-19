@@ -25,7 +25,7 @@ def handle_stop(sign, frame):
     json_data = {
         'status': 'paused',
         'errors': json.dumps(errors),
-        'logs': json.dumps(logs)
+        'output': json.dumps(logs)
     }
     requests.put(url, json=json_data)
 
@@ -33,9 +33,8 @@ def handle_stop(sign, frame):
 def handle_term(sign, frame):
     json_data = {
         'status': 'stopped',
-        'time_end': datetime.utcnow(),
         'errors': json.dumps(errors),
-        'logs': json.dumps(logs)
+        'output': json.dumps(logs)
     }
     requests.put(url, json=json_data)
     exit()
@@ -104,8 +103,7 @@ for user in users:
 
 json_data = {
     'status': 'finished',
-    'time_end': datetime.utcnow(),
     'errors': json.dumps(errors),
-    'logs': json.dumps(logs)
+    'output': json.dumps(logs)
 }
-requests.put(url, data=json_data)
+requests.put(url, json=json_data)

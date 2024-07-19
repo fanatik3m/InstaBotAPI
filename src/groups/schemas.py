@@ -141,7 +141,13 @@ class TaskCreateSchema(TaskBaseSchema):
 
 class TaskUpdateSchema(TaskBaseSchema):
     errors: Optional[str] = Field(None)
-    logs: Optional[str] = Field(None)
+    output: Optional[str] = Field(None)
+
+    class Config:
+        from_attributes = True
+
+
+class TaskUpdateDBSchema(TaskUpdateSchema):
     time_end: Optional[datetime.datetime] = Field(None)
 
 

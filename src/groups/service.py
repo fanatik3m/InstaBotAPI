@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional, List, Dict
 import json
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 from fastapi import HTTPException, status
 import docker
@@ -11,7 +11,7 @@ from instagrapi.types import HttpUrl
 from groups.dao import GroupDAO, ClientDAO, TaskDAO
 from groups.schemas import GroupCreateDBSchema, TaskCreateSchema, ClientCreateDBSchema, SingleTaskCreateSchema, \
     GroupSchema, GroupUpdateSchema, ClientSchema, ClientUpdateSchema, PeopleTaskRequestSchema, TaskUpdateSchema, \
-    TaskSchema
+    TaskSchema, TaskUpdateDBSchema
 from groups.models import GroupModel, ClientModel, TaskModel
 from groups.utils import Pagination, is_valid_proxy, add_text_randomize
 from database import async_session_maker
@@ -263,7 +263,7 @@ class ClientService:
             with open('groups/people_worker.py', 'r') as file:
                 command = file.read()
 
-            edit_url = base_url + f'clients/tasks/{task_id}'
+            edit_url = str(base_url) + f'clients/tasks/task/{task_id}'
 
             if client.proxy:
                 command = f'settings = {json.loads(client.settings)}\nusers={data.users}\nurl="{edit_url}"\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy="{client.proxy}"\n{command}'.replace(
@@ -382,16 +382,22 @@ class ClientService:
     @classmethod
     async def edit_task(cls, task_id: uuid.UUID, task: TaskUpdateSchema, redis):
         async with async_session_maker() as session:
-            if task.status == 'finished':
-                task = await TaskDAO.find_by_id(session, model_id=task_id)
-                client = await ClientDAO.find_by_id(session, model_id=task.client_id)
+            if task.status.value == 'finished':
+                task_db = await TaskDAO.find_by_id(session, model_id=task_id)
+                client = await ClientDAO.find_by_id(session, model_id=task_db.client_id)
                 await redis.set(str(client.id), 'active')
 
-            await TaskDAO.update(
-                session,
-                TaskModel.id == task_id,
-                obj=task
-            )
+                await TaskDAO.update(
+                    session,
+                    TaskModel.id == task_id,
+                    obj=TaskUpdateDBSchema(**task.model_dump(exclude_unset=True), time_end=datetime.utcnow())
+                )
+            else:
+                await TaskDAO.update(
+                    session,
+                    TaskModel.id == task_id,
+                    obj=task
+                )
             await session.commit()
 
     @classmethod

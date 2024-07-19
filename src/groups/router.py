@@ -108,7 +108,7 @@ async def stop_people_task(task_id: uuid.UUID, client_id: uuid.UUID = Body(...),
     await ClientService.stop_people_task(task_id, client_id, redis, user.id)
 
 
-@client_router.put('/tasks/{task_id}')
+@client_router.put('/tasks/task/{task_id}')
 async def edit_task(task_id: uuid.UUID, task: TaskUpdateSchema, redis=Depends(get_redis)):
     await ClientService.edit_task(task_id, task, redis)
 
@@ -119,7 +119,7 @@ async def get_self_task(client_id: uuid.UUID, page: int = 1, user: UserSchema = 
     return result
 
 
-@client_router.get('/tasks/{task_id}')
+@client_router.get('/tasks/task/{task_id}')
 async def get_detail_task(task_id: uuid.UUID, user: UserSchema = Depends(get_current_user)):
     result = await ClientService.detail_task(task_id, user.id)
     return result
