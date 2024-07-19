@@ -292,14 +292,25 @@ class ClientService:
             if task is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Client not found'
+                    detail='Task not found'
                 )
             if task.client_id != client_id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN
                 )
 
-            group = await GroupDAO.find_one(session, client_id=client_id)
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
             if group is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -312,7 +323,9 @@ class ClientService:
 
             docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
             container = docker_client.containers.get(group.docker_id)
-            container.exec_run(f'kill -STOP {task.pid}')
+            if task.status.value == 'working':
+                # container.exec_run(f'kill -STOP {task.pid}')
+                container.exec_run(f'kill -SIGTSTP {task.pid}')
 
     @classmethod
     async def restart_people_task(cls, task_id: uuid.UUID, client_id: uuid.UUID, redis, user_id: uuid.UUID) -> None:
@@ -321,14 +334,25 @@ class ClientService:
             if task is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Client not found'
+                    detail='Task not found'
                 )
             if task.client_id != client_id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN
                 )
 
-            group = await GroupDAO.find_one(session, client_id=client_id)
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
             if group is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -341,14 +365,17 @@ class ClientService:
 
             docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
             container = docker_client.containers.get(group.docker_id)
-            container.exec_run(f'kill -CONT {task.pid}', detach=True)
 
-            await TaskDAO.update(
-                session,
-                TaskModel.id == task_id,
-                obj={'status': 'working'}
-            )
-            await session.commit()
+            if task.status.value == 'paused':
+                # container.exec_run(f'kill -CONT {task.pid}', detach=True)
+                container.exec_run(f'kill -SIGCONT {task.pid}')
+
+                await TaskDAO.update(
+                    session,
+                    TaskModel.id == task_id,
+                    obj={'status': 'working'}
+                )
+                await session.commit()
 
     @classmethod
     async def stop_people_task(cls, task_id: uuid.UUID, client_id: uuid.UUID, redis, user_id: uuid.UUID) -> None:
@@ -357,14 +384,25 @@ class ClientService:
             if task is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Client not found'
+                    detail='Task not found'
                 )
             if task.client_id != client_id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN
                 )
 
-            group = await GroupDAO.find_one(session, client_id=client_id)
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
             if group is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -377,7 +415,9 @@ class ClientService:
 
             docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
             container = docker_client.containers.get(group.docker_id)
-            container.exec_run(f'kill {task.pid}', detach=True)
+            if task.status.value == 'working':
+                # container.exec_run(f'kill {task.pid}', detach=True)
+                container.exec_run(f'kill -SIGTERM {task.pid}')
 
     @classmethod
     async def edit_task(cls, task_id: uuid.UUID, task: TaskUpdateSchema, redis):

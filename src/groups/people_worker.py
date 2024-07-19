@@ -20,14 +20,19 @@ data = literal_eval(str(data))
 errors = {}
 logs = {}
 
+paused = False
+
 
 def handle_stop(sign, frame):
+    global paused
+
     json_data = {
         'status': 'paused',
         'errors': json.dumps(errors),
         'output': json.dumps(logs)
     }
     requests.put(url, json=json_data)
+    paused = True
 
 
 def handle_term(sign, frame):
@@ -41,10 +46,13 @@ def handle_term(sign, frame):
 
 
 def handle_resume(sign, frame):
-    json_data = {
-        'status': 'working',
-    }
-    requests.put(url, json=json_data)
+    global paused
+
+    # json_data = {
+    #     'status': 'working',
+    # }
+    # requests.put(url, json=json_data)
+    paused = False
 
 
 signal.signal(signal.SIGTSTP, handle_stop)
@@ -52,6 +60,9 @@ signal.signal(signal.SIGTERM, handle_term)
 signal.signal(signal.SIGCONT, handle_resume)
 
 for user in users:
+    if paused:
+        while paused:
+            signal.pause()
     logs[user] = {}
     errors[user] = {}
     user_id = client.user_info_by_username_v1(user).pk
