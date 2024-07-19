@@ -253,11 +253,10 @@ class ClientService:
                 TaskCreateSchema(
                     status='working',
                     client_id=client_id,
-                    type='people'
+                    action_type='people'
                 )
             )
             task_id = task.id
-            await session.commit()
 
             await redis.set(str(client.id), 'working')
 
@@ -274,6 +273,16 @@ class ClientService:
                     "\'", '"')
 
             exec_result = container.exec_run(['python', '-c', command], detach=True)
+            ps = container.exec_run('ps aux').output.decode('utf-8')
+            pid = ps.splitlines()[-2].strip()[:3].strip()
+
+            await TaskDAO.update(
+                session,
+                TaskModel.id == task_id,
+                obj={'pid': pid}
+            )
+            await session.commit()
+
             return task_id
 
     @classmethod

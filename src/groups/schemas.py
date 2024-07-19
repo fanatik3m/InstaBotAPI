@@ -116,7 +116,9 @@ class HashtagsTimeoutSchema(TimeoutSchema):
 
 class TaskSchema(BaseModel):
     id: uuid.UUID
+    pid: str
     status: Status
+    action_type: ActionType
     time_start: datetime.datetime
     time_end: Optional[datetime.datetime]
     errors: Optional[str]
@@ -133,7 +135,8 @@ class TaskBaseSchema(BaseModel):
 
 class TaskCreateSchema(TaskBaseSchema):
     client_id: Optional[uuid.UUID] = Field(None)
-    type: Optional[ActionType] = Field(None)
+    action_type: Optional[ActionType] = Field(None)
+    pid: Optional[str] = Field(None)
 
 
 class TaskUpdateSchema(TaskBaseSchema):

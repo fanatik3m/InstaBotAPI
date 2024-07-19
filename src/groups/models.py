@@ -5,7 +5,7 @@ from sqlalchemy.orm import mapped_column, Mapped
 from sqlalchemy.dialects.postgresql import UUID, ENUM
 from sqlalchemy import String, ForeignKey, UniqueConstraint, JSON
 
-from groups.utils import Status
+from groups.utils import Status, ActionType
 from groups.orm_annotates import time_start
 from groups.schemas import GroupSchema, ClientSchema, TaskSchema
 from database import Base
@@ -60,7 +60,9 @@ class TaskModel(Base):
     __tablename__ = 'task'
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, index=True, default=uuid.uuid4)
+    pid: Mapped[str] = mapped_column(String)
     status: Mapped[Status]
+    action_type: Mapped[ActionType]
     time_start: Mapped[time_start]
     time_end: Mapped[datetime.datetime] = mapped_column(nullable=True)
     errors: Mapped[str] = mapped_column(String, nullable=True)
@@ -70,7 +72,9 @@ class TaskModel(Base):
     def to_schema(self):
         return TaskSchema(
             id=self.id,
+            pid=self.pid,
             status=self.status,
+            action_type=self.action_type,
             time_start=self.time_start,
             time_end=self.time_end,
             errors=self.errors,
