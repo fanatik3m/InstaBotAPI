@@ -11,7 +11,7 @@ from instagrapi.types import HttpUrl
 from groups.dao import GroupDAO, ClientDAO, TaskDAO
 from groups.schemas import GroupCreateDBSchema, TaskCreateSchema, ClientCreateDBSchema, SingleTaskCreateSchema, \
     GroupSchema, GroupUpdateSchema, ClientSchema, ClientUpdateSchema, PeopleTaskRequestSchema, TaskUpdateSchema, \
-    TaskSchema, TaskUpdateDBSchema
+    TaskSchema, TaskUpdateDBSchema, HashtagsTaskRequestSchema
 from groups.models import GroupModel, ClientModel, TaskModel
 from groups.utils import Pagination, is_valid_proxy, add_text_randomize
 from database import async_session_maker
@@ -286,7 +286,68 @@ class ClientService:
             return task_id
 
     @classmethod
-    async def pause_people_task(cls, task_id: uuid.UUID, client_id: uuid.UUID, redis, user_id: uuid.UUID) -> None:
+    async def create_hashtags_task(cls, client_id: uuid.UUID, data: HashtagsTaskRequestSchema, base_url: str, redis,
+                                   user_id: uuid.UUID) -> uuid.UUID:
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+            if group.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+            container = docker_client.containers.get(group.docker_id)
+
+            task = await TaskDAO.add(
+                session,
+                TaskCreateSchema(
+                    status='working',
+                    client_id=client_id,
+                    action_type='hashtag'
+                )
+            )
+            task_id = task.id
+
+            await redis.set(str(client.id), 'working')
+
+            with open('groups/hashtags_worker.py', 'r') as file:
+                command = file.read()
+
+            edit_url = str(base_url) + f'clients/tasks/task/{task_id}'
+
+            if client.proxy:
+                command = f'settings = {json.loads(client.settings)}\nhashtags={data.hashtags}\nurl="{edit_url}"\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy="{client.proxy}"\n{command}'.replace(
+                    "\'", '"')
+            else:
+                command = f'settings = {json.loads(client.settings)}\nhashtags={data.hashtags}\nurl="{edit_url}"\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy=None\n{command}'.replace(
+                    "\'", '"')
+
+            exec_result = container.exec_run(['python', '-c', command], detach=True)
+            ps = container.exec_run('ps aux').output.decode('utf-8')
+            pid = ps.splitlines()[-2].strip()[:3].strip()
+
+            await TaskDAO.update(
+                session,
+                TaskModel.id == task_id,
+                obj={'pid': pid}
+            )
+            await session.commit()
+
+            return task_id
+
+    @classmethod
+    async def pause_task(cls, task_id: uuid.UUID, client_id: uuid.UUID, redis, user_id: uuid.UUID) -> None:
         async with async_session_maker() as session:
             task = await TaskDAO.find_by_id(session, model_id=task_id)
             if task is None:
@@ -328,7 +389,7 @@ class ClientService:
                 container.exec_run(f'kill -SIGTSTP {task.pid}')
 
     @classmethod
-    async def restart_people_task(cls, task_id: uuid.UUID, client_id: uuid.UUID, redis, user_id: uuid.UUID) -> None:
+    async def restart_task(cls, task_id: uuid.UUID, client_id: uuid.UUID, redis, user_id: uuid.UUID) -> None:
         async with async_session_maker() as session:
             task = await TaskDAO.find_by_id(session, model_id=task_id)
             if task is None:
@@ -378,7 +439,7 @@ class ClientService:
                 await session.commit()
 
     @classmethod
-    async def stop_people_task(cls, task_id: uuid.UUID, client_id: uuid.UUID, redis, user_id: uuid.UUID) -> None:
+    async def stop_task(cls, task_id: uuid.UUID, client_id: uuid.UUID, redis, user_id: uuid.UUID) -> None:
         async with async_session_maker() as session:
             task = await TaskDAO.find_by_id(session, model_id=task_id)
             if task is None:
@@ -422,9 +483,10 @@ class ClientService:
     @classmethod
     async def edit_task(cls, task_id: uuid.UUID, task: TaskUpdateSchema, redis):
         async with async_session_maker() as session:
-            if task.status.value == 'finished':
-                task_db = await TaskDAO.find_by_id(session, model_id=task_id)
-                client = await ClientDAO.find_by_id(session, model_id=task_db.client_id)
+            task_db = await TaskDAO.find_by_id(session, model_id=task_id)
+            client = await ClientDAO.find_by_id(session, model_id=task_db.client_id)
+
+            if task.status.value == 'finished' or task.status.value == 'stopped':
                 await redis.set(str(client.id), 'active')
 
                 await TaskDAO.update(
@@ -432,13 +494,18 @@ class ClientService:
                     TaskModel.id == task_id,
                     obj=TaskUpdateDBSchema(**task.model_dump(exclude_unset=True), time_end=datetime.utcnow())
                 )
-            else:
+                await session.commit()
+            elif task.status.value == 'paused':
+                await redis.set(str(client.id), 'active')
+
                 await TaskDAO.update(
                     session,
                     TaskModel.id == task_id,
                     obj=task
                 )
-            await session.commit()
+                await session.commit()
+            else:
+                await redis.set(str(client.id), 'working')
 
     @classmethod
     async def get_tasks(cls, client_id: uuid.UUID, page: int, user_id: uuid.UUID) -> Optional[List[TaskSchema]]:

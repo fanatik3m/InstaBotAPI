@@ -61,6 +61,13 @@ signal.signal(signal.SIGTSTP, handle_stop)
 signal.signal(signal.SIGTERM, handle_term)
 signal.signal(signal.SIGCONT, handle_resume)
 
+users = []
+
+for hashtag in hashtags:
+    posts = client.hashtag_medias_top(hashtag, amount=amount)
+    users += [post.user.pk for post in posts]
+
+
 for user in users:
     logs[user] = {}
     errors[user] = {}

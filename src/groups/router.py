@@ -10,7 +10,7 @@ from groups.utils import add_text_randomize
 from groups.service import GroupService, ClientService
 from groups.schemas import TaskCreateSchema, SingleTaskCreateSchema, GroupSchema, GroupUpdateSchema, ClientSchema, \
     ClientUpdateSchema, CredentialsSchema, LoginClientSchema, UsersIdsTimeoutSchema, FollowingRequestSchema, \
-    HashtagsTimeoutSchema, PeopleTaskRequestSchema, TaskUpdateSchema
+    HashtagsTimeoutSchema, PeopleTaskRequestSchema, TaskUpdateSchema, HashtagsTaskRequestSchema
 from database import get_redis
 
 group_router = APIRouter(
@@ -90,22 +90,29 @@ async def create_people_task(client_id: uuid.UUID, request: Request, data: Peopl
     return task_id
 
 
-@client_router.post('/people/tasks/pause/{task_id}')
-async def pause_people_task(task_id: uuid.UUID, client_id: uuid.UUID = Body(...), redis=Depends(get_redis),
-                            user: UserSchema = Depends(get_current_user)):
-    await ClientService.pause_people_task(task_id, client_id, redis, user.id)
+@client_router.post('/hashtags/tasks/start/{client_id}')
+async def create_hashtags_task(client_id: uuid.UUID, request: Request, data: HashtagsTaskRequestSchema,
+                               redis=Depends(get_redis), user: UserSchema = Depends(get_current_user)):
+    task_id = await ClientService.create_hashtags_task(client_id, data, request.base_url, redis, user.id)
+    return task_id
 
 
-@client_router.post('/people/tasks/restart/{task_id}')
-async def restart_people_task(task_id: uuid.UUID, client_id: uuid.UUID = Body(...), redis=Depends(get_redis),
-                              user: UserSchema = Depends(get_current_user)):
-    await ClientService.restart_people_task(task_id, client_id, redis, user.id)
+@client_router.post('/tasks/pause/{task_id}')
+async def pause_task(task_id: uuid.UUID, client_id: uuid.UUID = Body(...), redis=Depends(get_redis),
+                     user: UserSchema = Depends(get_current_user)):
+    await ClientService.pause_task(task_id, client_id, redis, user.id)
 
 
-@client_router.post('/people/tasks/stop/{task_id}')
-async def stop_people_task(task_id: uuid.UUID, client_id: uuid.UUID = Body(...), redis=Depends(get_redis),
-                           user: UserSchema = Depends(get_current_user)):
-    await ClientService.stop_people_task(task_id, client_id, redis, user.id)
+@client_router.post('/tasks/restart/{task_id}')
+async def restart_task(task_id: uuid.UUID, client_id: uuid.UUID = Body(...), redis=Depends(get_redis),
+                       user: UserSchema = Depends(get_current_user)):
+    await ClientService.restart_task(task_id, client_id, redis, user.id)
+
+
+@client_router.post('/tasks/stop/{task_id}')
+async def stop_task(task_id: uuid.UUID, client_id: uuid.UUID = Body(...), redis=Depends(get_redis),
+                    user: UserSchema = Depends(get_current_user)):
+    await ClientService.stop_task(task_id, client_id, redis, user.id)
 
 
 @client_router.put('/tasks/task/{task_id}')
@@ -220,16 +227,16 @@ async def get_user_followers(client_id: uuid.UUID, users: List[str] = Body(...),
     return result
 
 
-@client_router.post('/tasks')
-async def create_task_for_client(tasks: List[SingleTaskCreateSchema], client_id: uuid.UUID = Body(...),
-                                 group: str = Body(...),
-                                 output: bool = True,
-                                 user: UserSchema = Depends(get_current_user)):
-    try:
-        result = await ClientService.add_tasks(client_id, group, tasks, user.id, output)
-        return result
-    except Exception as e:
-        return e
+# @client_router.post('/tasks')
+# async def create_task_for_client(tasks: List[SingleTaskCreateSchema], client_id: uuid.UUID = Body(...),
+#                                  group: str = Body(...),
+#                                  output: bool = True,
+#                                  user: UserSchema = Depends(get_current_user)):
+#     try:
+#         result = await ClientService.add_tasks(client_id, group, tasks, user.id, output)
+#         return result
+#     except Exception as e:
+#         return e
 
 
 @client_router.get('/operations/')

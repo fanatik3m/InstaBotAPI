@@ -1,5 +1,6 @@
 import datetime
 import uuid
+import json
 
 from sqlalchemy.orm import mapped_column, Mapped
 from sqlalchemy.dialects.postgresql import UUID, ENUM
@@ -49,7 +50,7 @@ class ClientModel(Base):
             username=self.username,
             photo=self.photo,
             description=self.description,
-            settings=self.settings,
+            settings=json.loads(self.settings),
             auto_reply_id=self.auto_reply_id,
             user_id=self.user_id,
             group_id=self.group_id
@@ -77,7 +78,7 @@ class TaskModel(Base):
             action_type=self.action_type,
             time_start=self.time_start,
             time_end=self.time_end,
-            errors=self.errors,
-            output=self.output,
+            errors=json.loads(self.errors),
+            output=json.loads(self.output),
             client_id=self.client_id
         )

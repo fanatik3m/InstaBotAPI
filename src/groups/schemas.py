@@ -51,7 +51,7 @@ class ClientSchema(BaseModel):
     username: str
     photo: Optional[str]
     description: Optional[str]
-    settings: str
+    settings: Dict
     auto_reply_id: Optional[str]
     user_id: uuid.UUID
     group_id: uuid.UUID
@@ -121,8 +121,8 @@ class TaskSchema(BaseModel):
     action_type: ActionType
     time_start: datetime.datetime
     time_end: Optional[datetime.datetime]
-    errors: Optional[str]
-    output: Optional[str]
+    errors: Optional[Dict]
+    output: Optional[Dict]
     client_id: uuid.UUID
 
     class Config:
@@ -151,8 +151,7 @@ class TaskUpdateDBSchema(TaskUpdateSchema):
     time_end: Optional[datetime.datetime] = Field(None)
 
 
-class PeopleTaskRequestSchema(BaseModel):
-    users: List[str]
+class TaskRequestBaseSchema(BaseModel):
     timeout_from: int
     timeout_to: int
     follow: bool
@@ -162,3 +161,11 @@ class PeopleTaskRequestSchema(BaseModel):
     posts_amount: Optional[int] = Field(None)
     reels_like: bool
     reels_amount: Optional[int] = Field(None)
+
+
+class PeopleTaskRequestSchema(TaskRequestBaseSchema):
+    users: List[str]
+
+
+class HashtagsTaskRequestSchema(TaskRequestBaseSchema):
+    hashtags: List[str]
