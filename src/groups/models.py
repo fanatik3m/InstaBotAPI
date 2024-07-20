@@ -61,7 +61,7 @@ class TaskModel(Base):
     __tablename__ = 'task'
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, index=True, default=uuid.uuid4)
-    pid: Mapped[str] = mapped_column(String)
+    pid: Mapped[str] = mapped_column(String, nullable=True)
     status: Mapped[Status]
     action_type: Mapped[ActionType]
     progress: Mapped[str] = mapped_column(String(32))
@@ -79,7 +79,7 @@ class TaskModel(Base):
             action_type=self.action_type,
             time_start=self.time_start,
             time_end=self.time_end,
-            errors=json.loads(self.errors),
-            output=json.loads(self.output),
+            errors=json.loads(self.errors) if self.errors else None,
+            output=json.loads(self.output) if self.output else None,
             client_id=self.client_id
         )

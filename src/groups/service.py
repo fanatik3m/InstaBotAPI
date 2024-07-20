@@ -316,7 +316,7 @@ class ClientService:
                     status='working',
                     client_id=client_id,
                     action_type='hashtag',
-                    progress=f'0/{len(data.users)}'
+                    progress=f'0/{data.hashtags}'
                 )
             )
             task_id = task.id
@@ -329,10 +329,10 @@ class ClientService:
             edit_url = str(base_url) + f'clients/tasks/task/{task_id}'
 
             if client.proxy:
-                command = f'settings = {json.loads(client.settings)}\nhashtags={data.hashtags}\nurl="{edit_url}"\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy="{client.proxy}"\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nhashtags={data.hashtags}\namount={data.amount}\nurl="{edit_url}"\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy="{client.proxy}"\n{command}'.replace(
                     "\'", '"')
             else:
-                command = f'settings = {json.loads(client.settings)}\nhashtags={data.hashtags}\nurl="{edit_url}"\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy=None\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nhashtags={data.hashtags}\namount={data.amount}\nurl="{edit_url}"\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy=None\n{command}'.replace(
                     "\'", '"')
 
             exec_result = container.exec_run(['python', '-c', command], detach=True)

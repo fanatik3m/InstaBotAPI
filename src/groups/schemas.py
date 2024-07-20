@@ -171,6 +171,7 @@ class PeopleTaskRequestSchema(TaskRequestBaseSchema):
 
 class HashtagsTaskRequestSchema(TaskRequestBaseSchema):
     hashtags: List[str]
+    amount: int
 
 
 class ParsingTaskRequestSchema(BaseModel):
