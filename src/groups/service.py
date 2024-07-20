@@ -11,7 +11,7 @@ from instagrapi.types import HttpUrl
 from groups.dao import GroupDAO, ClientDAO, TaskDAO
 from groups.schemas import GroupCreateDBSchema, TaskCreateSchema, ClientCreateDBSchema, SingleTaskCreateSchema, \
     GroupSchema, GroupUpdateSchema, ClientSchema, ClientUpdateSchema, PeopleTaskRequestSchema, TaskUpdateSchema, \
-    TaskSchema, TaskUpdateDBSchema, HashtagsTaskRequestSchema
+    TaskSchema, TaskUpdateDBSchema, HashtagsTaskRequestSchema, ParsingTaskRequestSchema
 from groups.models import GroupModel, ClientModel, TaskModel
 from groups.utils import Pagination, is_valid_proxy, add_text_randomize
 from database import async_session_maker
@@ -253,7 +253,8 @@ class ClientService:
                 TaskCreateSchema(
                     status='working',
                     client_id=client_id,
-                    action_type='people'
+                    action_type='people',
+                    progress=f'0/{len(data.users)}'
                 )
             )
             task_id = task.id
@@ -314,7 +315,8 @@ class ClientService:
                 TaskCreateSchema(
                     status='working',
                     client_id=client_id,
-                    action_type='hashtag'
+                    action_type='hashtag',
+                    progress=f'0/{len(data.users)}'
                 )
             )
             task_id = task.id
@@ -331,6 +333,68 @@ class ClientService:
                     "\'", '"')
             else:
                 command = f'settings = {json.loads(client.settings)}\nhashtags={data.hashtags}\nurl="{edit_url}"\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy=None\n{command}'.replace(
+                    "\'", '"')
+
+            exec_result = container.exec_run(['python', '-c', command], detach=True)
+            ps = container.exec_run('ps aux').output.decode('utf-8')
+            pid = ps.splitlines()[-2].strip()[:3].strip()
+
+            await TaskDAO.update(
+                session,
+                TaskModel.id == task_id,
+                obj={'pid': pid}
+            )
+            await session.commit()
+
+            return task_id
+
+    @classmethod
+    async def create_parsing_task(cls, client_id: uuid.UUID, data: ParsingTaskRequestSchema, base_url: str, redis,
+                                   user_id: uuid.UUID) -> uuid.UUID:
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+            if group.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+            container = docker_client.containers.get(group.docker_id)
+
+            task = await TaskDAO.add(
+                session,
+                TaskCreateSchema(
+                    status='working',
+                    client_id=client_id,
+                    action_type='parse',
+                    progress=f'0/{len(data.users)}'
+                )
+            )
+            task_id = task.id
+
+            await redis.set(str(client.id), 'working')
+
+            with open('groups/parse_worker.py', 'r') as file:
+                command = file.read()
+
+            edit_url = str(base_url) + f'clients/tasks/task/{task_id}'
+
+            if client.proxy:
+                command = f'settings = {json.loads(client.settings)}\nusers={data.users}\nurl="{edit_url}"\ndata={data.model_dump(exclude_unset=True)}\nproxy="{client.proxy}"\n{command}'.replace(
+                    "\'", '"')
+            else:
+                command = f'settings = {json.loads(client.settings)}\nusers={data.users}\nurl="{edit_url}"\ndata={data.model_dump(exclude_unset=True)}\nproxy=None\n{command}'.replace(
                     "\'", '"')
 
             exec_result = container.exec_run(['python', '-c', command], detach=True)

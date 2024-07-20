@@ -137,9 +137,11 @@ class TaskCreateSchema(TaskBaseSchema):
     client_id: Optional[uuid.UUID] = Field(None)
     action_type: Optional[ActionType] = Field(None)
     pid: Optional[str] = Field(None)
+    progress: Optional[str] = Field(None)
 
 
 class TaskUpdateSchema(TaskBaseSchema):
+    progress: Optional[str] = Field(None)
     errors: Optional[str] = Field(None)
     output: Optional[str] = Field(None)
 
@@ -169,3 +171,11 @@ class PeopleTaskRequestSchema(TaskRequestBaseSchema):
 
 class HashtagsTaskRequestSchema(TaskRequestBaseSchema):
     hashtags: List[str]
+
+
+class ParsingTaskRequestSchema(BaseModel):
+    users: List[str]
+    followers: bool
+    followers_amount: Optional[int]
+    followings: bool
+    followings_amount: Optional[int]

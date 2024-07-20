@@ -19,6 +19,7 @@ data = literal_eval(str(data))
 
 errors = {}
 logs = {}
+users_processed = 0
 
 paused = False
 
@@ -29,7 +30,8 @@ def handle_stop(sign, frame):
     json_data = {
         'status': 'paused',
         'errors': json.dumps(errors),
-        'output': json.dumps(logs)
+        'output': json.dumps(logs),
+        'progress': f'{users_processed}/{users_length}'
     }
     requests.put(url, json=json_data)
     paused = True
@@ -41,7 +43,8 @@ def handle_term(sign, frame):
     json_data = {
         'status': 'stopped',
         'errors': json.dumps(errors),
-        'output': json.dumps(logs)
+        'output': json.dumps(logs),
+        'progress': f'{users_processed}/{users_length}'
     }
     requests.put(url, json=json_data)
     exit()
@@ -66,6 +69,9 @@ users = []
 for hashtag in hashtags:
     posts = client.hashtag_medias_top(hashtag, amount=amount)
     users += [post.user.pk for post in posts]
+
+
+users_length = len(users)
 
 
 for user in users:
@@ -117,10 +123,12 @@ for user in users:
                     logs[user]['reels_like'] += 1
                 except FeedbackRequired:
                     errors[user]['reels_like'][reel.pk] = 'Too many requests, try later'
+    users_processed += 1
 
 json_data = {
     'status': 'finished',
     'errors': json.dumps(errors),
-    'output': json.dumps(logs)
+    'output': json.dumps(logs),
+    'progress': f'{users_processed}/{users_length}'
 }
 requests.put(url, json=json_data)

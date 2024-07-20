@@ -64,6 +64,7 @@ class TaskModel(Base):
     pid: Mapped[str] = mapped_column(String)
     status: Mapped[Status]
     action_type: Mapped[ActionType]
+    progress: Mapped[str] = mapped_column(String(32))
     time_start: Mapped[time_start]
     time_end: Mapped[datetime.datetime] = mapped_column(nullable=True)
     errors: Mapped[str] = mapped_column(String, nullable=True)
