@@ -157,6 +157,12 @@ class TaskUpdateDBSchema(TaskUpdateSchema):
 class TaskRequestBaseSchema(BaseModel):
     timeout_from: int
     timeout_to: int
+    posts_timeout_from: int
+    posts_timeout_to: int
+    reels_timeout_from: int
+    reels_timeout_to: int
+    stories_timeout_from: int
+    stories_timeout_to: int
     follow: bool
     stories_like: bool
     stories_amount: Optional[int] = Field(None)

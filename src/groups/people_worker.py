@@ -1,6 +1,8 @@
 import json
 import signal
 from datetime import datetime
+import time
+import random
 
 from instagrapi import Client
 from instagrapi.exceptions import PrivateError, FeedbackRequired
@@ -14,7 +16,6 @@ settings = literal_eval(str(settings))
 client.set_settings(settings)
 if proxy is not None:
     client.set_proxy(f'socks5://{proxy}')
-client.delay_range = [timeout_from, timeout_to]
 data = literal_eval(str(data))
 
 errors = {}
@@ -23,6 +24,13 @@ users_processed = 0
 users_length = len(users)
 
 paused = False
+
+posts_timeout_from = data.get('posts_timeout_from')
+posts_timeout_to = data.get('posts_timeout_to')
+reels_timeout_from = data.get('reels_timeout_from')
+reels_timeout_to = data.get('reels_timeout_to')
+stories_timeout_from = data.get('stories_timeout_from')
+stories_timeout_to = data.get('stories_timeout_to')
 
 
 def handle_stop(sign, frame):
@@ -81,6 +89,7 @@ for user in users:
         errors[user]['stories_like'] = {}
         stories = client.user_stories(user_id, amount=data.get('stories_amount'))
         for story in stories:
+            time.sleep(random.randint(stories_timeout_from, stories_timeout_to))
             try:
                 client.story_like(story.id)
                 logs[user]['stories_like'] += 1
@@ -95,6 +104,7 @@ for user in users:
             errors[user]['posts_like'] = 'Account is private'
         else:
             for post in posts:
+                time.sleep(random.randint(posts_timeout_from, posts_timeout_to))
                 try:
                     client.media_like(post.id)
                     logs[user]['posts_like'] += 1
@@ -109,12 +119,14 @@ for user in users:
             errors[user]['reels_like'] = 'Account is private'
         else:
             for reel in reels:
+                time.sleep(random.randint(reels_timeout_from, reels_timeout_to))
                 try:
                     client.media_like(reel.id)
                     logs[user]['reels_like'] += 1
                 except FeedbackRequired:
                     errors[user]['reels_like'][reel.pk] = 'Too many requests, try later'
     users_processed += 1
+    time.sleep(random.randint(timeout_from, timeout_to))
 
 json_data = {
     'status': 'finished',

@@ -225,6 +225,32 @@ class ClientService:
             return result
 
     @classmethod
+    async def get_account_info(cls, client_id: uuid.UUID, user_id: uuid.UUID) -> Dict:
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            settings = json.loads(client.settings)
+            cl = Client()
+            cl.set_settings(settings)
+            if client.proxy is not None:
+                client.set_proxy(f'socks5://{client.proxy}')
+
+            info = cl.user_info_by_username_v1(client.username)
+            return {
+                'followers': info.follower_count,
+                'followings': info.following_count
+            }
+
+    @classmethod
     async def create_people_task(cls, client_id: uuid.UUID, data: PeopleTaskRequestSchema, base_url: str, redis,
                                  user_id: uuid.UUID) -> uuid.UUID:
         async with async_session_maker() as session:

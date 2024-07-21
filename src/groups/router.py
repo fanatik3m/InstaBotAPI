@@ -83,6 +83,12 @@ async def relogin_client(credentials: CredentialsSchema, client_id: uuid.UUID = 
     return client_id
 
 
+@client_router.get('/account-info/{client_id}')
+async def get_account_info(client_id: uuid.UUID, user: UserSchema = Depends(get_current_user)):
+    account_info = await ClientService.get_account_info(client_id, user.id)
+    return account_info
+
+
 @client_router.post('/people/tasks/start/{client_id}')
 async def create_people_task(client_id: uuid.UUID, request: Request, data: PeopleTaskRequestSchema,
                              redis=Depends(get_redis),
