@@ -55,6 +55,7 @@ class ClientSchema(BaseModel):
     auto_reply_id: Optional[str]
     user_id: uuid.UUID
     group_id: uuid.UUID
+    status: str
 
     class Config:
         from_attributes = True

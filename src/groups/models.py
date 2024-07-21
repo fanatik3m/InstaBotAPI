@@ -44,7 +44,7 @@ class ClientModel(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey('user.id', ondelete='CASCADE'))
     group_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey('group.id', ondelete='CASCADE'))
 
-    def to_schema(self):
+    async def to_schema(self, redis):
         return ClientSchema(
             id=self.id,
             username=self.username,
@@ -53,7 +53,8 @@ class ClientModel(Base):
             settings=json.loads(self.settings),
             auto_reply_id=self.auto_reply_id,
             user_id=self.user_id,
-            group_id=self.group_id
+            group_id=self.group_id,
+            status=await redis.get(str(self.id))
         )
 
 

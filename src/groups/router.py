@@ -248,21 +248,23 @@ async def get_user_followers(client_id: uuid.UUID, users: List[str] = Body(...),
 
 
 @client_router.get('/operations/')
-async def get_self_clients(page: int = 1, user: UserSchema = Depends(get_current_user)) -> Optional[List[ClientSchema]]:
-    clients = await ClientService.get_clients(page, user.id)
+async def get_self_clients(page: int = 1, redis=Depends(get_redis), user: UserSchema = Depends(get_current_user)) -> \
+        Optional[List[ClientSchema]]:
+    clients = await ClientService.get_clients(page, redis, user.id)
     return clients
 
 
 @client_router.get('/operations/{client_id}')
-async def get_client_by_id(client_id: uuid.UUID, user: UserSchema = Depends(get_current_user)) -> ClientSchema:
-    client = await ClientService.get_client_by_id(client_id, user.id)
+async def get_client_by_id(client_id: uuid.UUID, redis=Depends(get_redis),
+                           user: UserSchema = Depends(get_current_user)) -> ClientSchema:
+    client = await ClientService.get_client_by_id(client_id, redis, user.id)
     return client
 
 
 @client_router.put('/operations/{client_id}')
-async def edit_client_by_id(client_id: uuid.UUID, client: ClientUpdateSchema,
+async def edit_client_by_id(client_id: uuid.UUID, client: ClientUpdateSchema, redis=Depends(get_redis),
                             user: UserSchema = Depends(get_current_user)) -> ClientSchema:
-    client = await ClientService.edit_client_by_id(client_id, client, user.id)
+    client = await ClientService.edit_client_by_id(client_id, client, redis, user.id)
     return client
 
 

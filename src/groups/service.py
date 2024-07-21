@@ -1160,7 +1160,7 @@ class ClientService:
             return result if output else None
 
     @classmethod
-    async def get_clients(cls, page: int, user_id: uuid.UUID) -> Optional[List[ClientSchema]]:
+    async def get_clients(cls, page: int, redis, user_id: uuid.UUID) -> Optional[List[ClientSchema]]:
         pagination = Pagination(page)
 
         async with async_session_maker() as session:
@@ -1168,11 +1168,11 @@ class ClientService:
             if not clients:
                 return None
 
-            result = [client.to_schema() for client in clients]
+            result = [await client.to_schema(redis) for client in clients]
             return result
 
     @classmethod
-    async def get_client_by_id(cls, client_id: uuid.UUID, user_id: uuid.UUID) -> ClientSchema:
+    async def get_client_by_id(cls, client_id: uuid.UUID, redis, user_id: uuid.UUID) -> ClientSchema:
         async with async_session_maker() as session:
             client = await ClientDAO.find_by_id(session, model_id=client_id)
             if client is None:
@@ -1185,11 +1185,11 @@ class ClientService:
                     status_code=status.HTTP_403_FORBIDDEN
                 )
 
-            result = client.to_schema()
+            result = await client.to_schema(redis)
             return result
 
     @classmethod
-    async def edit_client_by_id(cls, client_id: uuid.UUID, client: ClientUpdateSchema,
+    async def edit_client_by_id(cls, client_id: uuid.UUID, client: ClientUpdateSchema, redis,
                                 user_id: uuid.UUID) -> ClientSchema:
         async with async_session_maker() as session:
             client_db = await ClientDAO.find_by_id(session, model_id=client_id)
@@ -1208,7 +1208,7 @@ class ClientService:
                 ClientModel.id == client_db.id,
                 obj=client
             )
-            result = client_updated.to_schema()
+            result = await client_updated.to_schema(redis)
             await session.commit()
 
             return result
