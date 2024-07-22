@@ -52,17 +52,6 @@ async def edit_group_name_by_id(group_id: uuid.UUID, group: GroupUpdateSchema,
     return group
 
 
-@group_router.post('/tasks')
-async def create_task_for_group(tasks: List[SingleTaskCreateSchema], group: str = Body(...),
-                                output: bool = True,
-                                user: UserSchema = Depends(get_current_user)):
-    try:
-        result = await GroupService.add_tasks(group, tasks, user.id, output)
-        return result
-    except Exception as e:
-        return e
-
-
 @group_router.delete('/{group_id}')
 async def delete_group_by_id(group_id: uuid.UUID, user: UserSchema = Depends(get_current_user)) -> None:
     await GroupService.delete_group_by_id(group_id, user.id)
@@ -146,13 +135,6 @@ async def get_detail_task(task_id: uuid.UUID, user: UserSchema = Depends(get_cur
     return result
 
 
-@client_router.post('/follow/{client_id}')
-async def follow_users(client_id: uuid.UUID, data: FollowingRequestSchema, redis=Depends(get_redis),
-                       user: UserSchema = Depends(get_current_user)):
-    result = await ClientService.follow(client_id, data.users, data.timeout_from, data.timeout_to, user.id, redis)
-    return result
-
-
 @client_router.get('/status/{client_id}', dependencies=[Depends(get_current_user)])
 async def get_client_status(client_id: uuid.UUID, redis=Depends(get_redis)) -> str:
     status = await ClientService.get_status(client_id, redis)
@@ -181,76 +163,6 @@ async def delete_auto_reply(client_id: uuid.UUID, user: UserSchema = Depends(get
 async def get_has_client_auto_reply(client_id: uuid.UUID, user: UserSchema = Depends(get_current_user)) -> bool:
     result = await ClientService.get_auto_reply(client_id, user.id)
     return result
-
-
-@client_router.post('/stories/like/{client_id}')
-async def like_stories(client_id: uuid.UUID, data: UsersIdsTimeoutSchema, redis=Depends(get_redis),
-                       user: UserSchema = Depends(get_current_user)):
-    result = await ClientService.like_stories(client_id, data.users, data.timeout_from, data.timeout_to, redis,
-                                              user.id)
-    return result
-
-
-@client_router.post('/posts/like/{client_id}')
-async def first_post_like(client_id: uuid.UUID, data: UsersIdsTimeoutSchema, redis=Depends(get_redis),
-                          user: UserSchema = Depends(get_current_user)):
-    result = await ClientService.first_post_like(client_id, data.users, data.timeout_from, data.timeout_to, redis,
-                                                 user.id)
-    return result
-
-
-@client_router.post('/reels/like/{client_id}')
-async def reels_like(client_id: uuid.UUID, data: UsersIdsTimeoutSchema, amount: int = 20, redis=Depends(get_redis),
-                     user: UserSchema = Depends(get_current_user)):
-    result = await ClientService.reels_like(client_id, data.users, data.timeout_from, data.timeout_to, amount,
-                                            redis, user.id)
-    return result
-
-
-@client_router.post('/hashtags/posts/like/{client_id}')
-async def hashtags_like(client_id: uuid.UUID, data: HashtagsTimeoutSchema, amount: int = 20,
-                        redis=Depends(get_redis), user: UserSchema = Depends(get_current_user)):
-    result = await ClientService.hashtags_like(client_id, data.hashtags, data.timeout_from, data.timeout_to, amount,
-                                               'groups/hashtags_posts_like_worker.py',
-                                               redis, user.id)
-    return result
-
-
-@client_router.post('/hashtags/reels/like/{client_id}')
-async def hashtags_reels_like(client_id: uuid.UUID, data: HashtagsTimeoutSchema, amount: int = 20,
-                              redis=Depends(get_redis), user: UserSchema = Depends(get_current_user)):
-    result = await ClientService.hashtags_like(client_id, data.hashtags, data.timeout_from, data.timeout_to, amount,
-                                               'groups/hashtags_reels_like_worker.py',
-                                               redis, user.id)
-    return result
-
-
-@client_router.post('/users/followings/{client_id}')
-async def get_user_followings(client_id: uuid.UUID, users: List[str] = Body(...), amount: int = 20,
-                              redis=Depends(get_redis), user: UserSchema = Depends(get_current_user)):
-    result = await ClientService.user_followings(client_id, users, amount,
-                                                 redis, user.id)
-    return result
-
-
-@client_router.post('/users/followers/{client_id}')
-async def get_user_followers(client_id: uuid.UUID, users: List[str] = Body(...), amount: int = 20,
-                             redis=Depends(get_redis), user: UserSchema = Depends(get_current_user)):
-    result = await ClientService.user_followers(client_id, users, amount,
-                                                redis, user.id)
-    return result
-
-
-# @client_router.post('/tasks')
-# async def create_task_for_client(tasks: List[SingleTaskCreateSchema], client_id: uuid.UUID = Body(...),
-#                                  group: str = Body(...),
-#                                  output: bool = True,
-#                                  user: UserSchema = Depends(get_current_user)):
-#     try:
-#         result = await ClientService.add_tasks(client_id, group, tasks, user.id, output)
-#         return result
-#     except Exception as e:
-#         return e
 
 
 @client_router.get('/operations/')

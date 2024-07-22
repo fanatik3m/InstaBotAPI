@@ -30,7 +30,7 @@ def text_randomize(text: str):
 
 
 while True:
-    time.sleep(random.randint(300, 600))
+    time.sleep(random.randint(120, 180))
     followers = client.user_followers(self_user_id)
     followers_ids = list(followers.keys())
     for follower_id in followers_ids:
