@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Body, Form, Request
 
 from auth.dependencies import get_current_user
 from auth.schemas import UserSchema
-from groups.utils import add_text_randomize
+from groups.utils import add_text_randomize, is_valid_proxy
 from groups.service import GroupService, ClientService
 from groups.schemas import TaskCreateSchema, SingleTaskCreateSchema, GroupSchema, GroupUpdateSchema, ClientSchema, \
     ClientUpdateSchema, CredentialsSchema, LoginClientSchema, UsersIdsTimeoutSchema, FollowingRequestSchema, \
@@ -70,6 +70,11 @@ async def relogin_client(credentials: CredentialsSchema, client_id: uuid.UUID = 
                          user: UserSchema = Depends(get_current_user)):
     client_id = await ClientService.relogin_client(client_id, credentials.username, credentials.password, user.id)
     return client_id
+
+
+@client_router.post('/proxy')
+async def validate_proxy(proxy: str = Body(...)) -> bool:
+    return is_valid_proxy(proxy)
 
 
 @client_router.get('/account-info/{client_id}')

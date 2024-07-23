@@ -119,8 +119,7 @@ class ClientService:
                            proxy: Optional[str], user_id: uuid.UUID):
         client = Client()
         if proxy is not None:
-            if is_valid_proxy(proxy):
-                client.set_proxy(f'socks5://{proxy}')
+            client.set_proxy(proxy)
 
         client.login(username, password)
         user_photo = client.user_info_by_username_v1(username).profile_pic_url
@@ -199,7 +198,7 @@ class ClientService:
             cl = Client()
             cl.set_settings(settings)
             if client.proxy is not None:
-                client.set_proxy(f'socks5://{client.proxy}')
+                client.set_proxy(client.proxy)
 
             info = cl.user_info_by_username_v1(client.username)
             return {

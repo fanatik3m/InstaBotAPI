@@ -15,7 +15,7 @@ client = Client()
 settings = literal_eval(str(settings))
 client.set_settings(settings)
 if proxy is not None:
-    client.set_proxy(f'socks5://{proxy}')
+    client.set_proxy(proxy)
 data = literal_eval(str(data))
 
 errors = {}

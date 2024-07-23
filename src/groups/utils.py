@@ -23,7 +23,7 @@ class Pagination:
 
 def is_valid_proxy(proxy):
     proxies = {
-        'https': f'socks5://{proxy}',
+        'https': proxy,
     }
     try:
         response = requests.get('https://www.python.org/', proxies=proxies)

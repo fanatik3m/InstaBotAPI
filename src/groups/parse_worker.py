@@ -13,7 +13,7 @@ client = Client()
 settings = literal_eval(str(settings))
 client.set_settings(settings)
 if proxy is not None:
-    client.set_proxy(f'socks5://{proxy}')
+    client.set_proxy(proxy)
 client.delay_range = [1, 3]
 data = literal_eval(str(data))
 
