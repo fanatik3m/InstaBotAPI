@@ -161,7 +161,6 @@ if data.people:
         time.sleep(random.randint(people_timeout_from, people_timeout_to))
 
 if data.hashtags:
-    time.sleep(random.randint(timeout_from, timeout_to))
     hashtags_amount = data.get('hashtags_config').get('amount')
     for hashtag in data.get('hashtags_config').get('hashtags'):
         posts = client.hashtag_medias_top(hashtag, amount=hashtags_amount)
@@ -223,7 +222,6 @@ if data.hashtags:
         time.sleep(random.randint(hashtags_timeout_from, hashtags_timeout_to))
 
 if data.parsing:
-    time.sleep(random.randint(timeout_from, timeout_to))
     client.delay_range = [1, 3]
     for user in data.get('parsing_config').get('users'):
         logs['parsing'][user] = {}

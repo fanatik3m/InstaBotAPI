@@ -196,5 +196,3 @@ class MixedTaskRequestSchema(BaseModel):
     hashtags_config: HashtagsTaskRequestSchema
     parsing: bool
     parsing_config: ParsingTaskRequestSchema
-    timeout_from: int
-    timeout_to: int
