@@ -11,7 +11,7 @@ from groups.service import GroupService, ClientService
 from groups.schemas import TaskCreateSchema, SingleTaskCreateSchema, GroupSchema, GroupUpdateSchema, ClientSchema, \
     ClientUpdateSchema, CredentialsSchema, LoginClientSchema, UsersIdsTimeoutSchema, FollowingRequestSchema, \
     HashtagsTimeoutSchema, PeopleTaskRequestSchema, TaskUpdateSchema, HashtagsTaskRequestSchema, \
-    ParsingTaskRequestSchema
+    ParsingTaskRequestSchema, MixedTaskRequestSchema
 from database import get_redis
 
 group_router = APIRouter(
@@ -102,6 +102,13 @@ async def create_hashtags_task(client_id: uuid.UUID, request: Request, data: Has
 async def create_parsing_task(client_id: uuid.UUID, request: Request, data: ParsingTaskRequestSchema,
                               redis=Depends(get_redis), user: UserSchema = Depends(get_current_user)):
     task_id = await ClientService.create_parsing_task(client_id, data, request.base_url, redis, user.id)
+    return task_id
+
+
+@client_router.post('/mixed/tasks/start/{client_id}')
+async def create_mixed_task(client_id: uuid.UUID, request: Request, data: MixedTaskRequestSchema,
+                            redis=Depends(get_redis), user: UserSchema = Depends(get_current_user)):
+    task_id = await ClientService.create_mixed_task(client_id, data, request.base_url, redis, user.id)
     return task_id
 
 

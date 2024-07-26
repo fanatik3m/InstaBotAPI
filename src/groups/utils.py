@@ -53,3 +53,4 @@ class ActionType(Enum):
     people = 'people'
     hashtag = 'hashtag'
     parse = 'parse'
+    mixed = 'mixed'

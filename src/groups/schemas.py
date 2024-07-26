@@ -187,3 +187,14 @@ class ParsingTaskRequestSchema(BaseModel):
     followers_amount: Optional[int]
     followings: bool
     followings_amount: Optional[int]
+
+
+class MixedTaskRequestSchema(BaseModel):
+    people: bool
+    people_config: PeopleTaskRequestSchema
+    hashtags: bool
+    hashtags_config: HashtagsTaskRequestSchema
+    parsing: bool
+    parsing_config: ParsingTaskRequestSchema
+    timeout_from: int
+    timeout_to: int
