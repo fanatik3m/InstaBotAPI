@@ -51,6 +51,7 @@ class ClientModel(Base):
             photo=self.photo,
             description=self.description,
             settings=json.loads(self.settings),
+            proxy=self.proxy,
             auto_reply_id=self.auto_reply_id,
             user_id=self.user_id,
             group_id=self.group_id,
