@@ -4,6 +4,7 @@ from datetime import datetime
 import time
 import random
 
+import redis
 from instagrapi import Client
 from instagrapi.exceptions import PrivateError, FeedbackRequired
 
@@ -17,6 +18,12 @@ client.set_settings(settings)
 if proxy is not None:
     client.set_proxy(proxy)
 data = literal_eval(str(data))
+
+redis = redis.Redis()
+
+task_id = str(task_id)
+
+redis.set(task_id, f'0/{progress_amount}')
 
 errors = {}
 logs = {}
@@ -69,8 +76,7 @@ def handle_stop(sign, frame):
     json_data = {
         'status': 'paused',
         'errors': json.dumps(errors),
-        'output': json.dumps(logs),
-        'progress': f'{progress_processed}/{progress_amount}'
+        'output': json.dumps(logs)
     }
     requests.put(url, json=json_data)
     paused = True
@@ -82,8 +88,7 @@ def handle_term(sign, frame):
     json_data = {
         'status': 'stopped',
         'errors': json.dumps(errors),
-        'output': json.dumps(logs),
-        'progress': f'{progress_processed}/{progress_amount}'
+        'output': json.dumps(logs)
     }
     requests.put(url, json=json_data)
     exit()
@@ -160,6 +165,7 @@ if data.get('people'):
                     except FeedbackRequired:
                         errors[user]['reels_like'][reel.pk] = 'Too many requests, try later'
         progress_processed += 1
+        redis.set(task_id, f'{progress_processed}/{progress_amount}')
         time.sleep(random.randint(people_timeout_from, people_timeout_to))
 
 time.sleep(random.randint(5, 10))
@@ -225,6 +231,7 @@ if data.get('hashtags'):
                         except FeedbackRequired:
                             errors['hashtags'][user]['reels_like'][reel.pk] = 'Too many requests, try later'
         progress_processed += 1
+        redis.set(task_id, f'{progress_processed}/{progress_amount}')
         time.sleep(random.randint(hashtags_timeout_from, hashtags_timeout_to))
 
 time.sleep(random.randint(5, 10))
@@ -250,11 +257,11 @@ if data.get('parsing'):
             except Exception as e:
                 errors['parsing'][user]['followings'] = str(e)[:50]
         progress_processed += 1
+        redis.set(task_id, f'{progress_processed}/{progress_amount}')
 
 json_data = {
     'status': 'finished',
     'errors': json.dumps(errors),
-    'output': json.dumps(logs),
-    'progress': f'{progress_processed}/{progress_amount}'
+    'output': json.dumps(logs)
 }
 requests.put(url, json=json_data)

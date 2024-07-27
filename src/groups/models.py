@@ -39,7 +39,9 @@ class ClientModel(Base):
     photo: Mapped[str] = mapped_column(String)
     description: Mapped[str] = mapped_column(String, nullable=True)
     settings: Mapped[str] = mapped_column(String)
+    config: Mapped[str] = mapped_column(String, nullable=True)
     proxy: Mapped[str] = mapped_column(String, nullable=True)
+    auto_reply_config: Mapped[str] = mapped_column(String, nullable=True)
     auto_reply_id: Mapped[str] = mapped_column(String, nullable=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey('user.id', ondelete='CASCADE'))
     group_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey('group.id', ondelete='CASCADE'))
@@ -50,7 +52,7 @@ class ClientModel(Base):
             username=self.username,
             photo=self.photo,
             description=self.description,
-            settings=json.loads(self.settings),
+            config=json.loads(self.config) if self.config else None,
             proxy=self.proxy,
             auto_reply_id=self.auto_reply_id,
             user_id=self.user_id,
@@ -66,19 +68,19 @@ class TaskModel(Base):
     pid: Mapped[str] = mapped_column(String, nullable=True)
     status: Mapped[Status]
     action_type: Mapped[ActionType]
-    progress: Mapped[str] = mapped_column(String(32))
     time_start: Mapped[time_start]
     time_end: Mapped[datetime.datetime] = mapped_column(nullable=True)
     errors: Mapped[str] = mapped_column(String, nullable=True)
     output: Mapped[str] = mapped_column(String, nullable=True)
     client_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey('client.id', ondelete='CASCADE'))
 
-    def to_schema(self):
+    async def to_schema(self, redis):
         return TaskSchema(
             id=self.id,
             pid=self.pid,
             status=self.status,
             action_type=self.action_type,
+            progress=await redis.get(str(self.id)),
             time_start=self.time_start,
             time_end=self.time_end,
             errors=json.loads(self.errors) if self.errors else None,

@@ -17,13 +17,13 @@ router = APIRouter(
 
 
 @router.post('/register')
-async def register(user: UserCreateSchema):
+async def register(user: UserCreateSchema) -> UserSchema:
     user = await UserService.register_user(user)
     return user
 
 
 @router.get('/me')
-async def get_me(user: UserSchema = Depends(get_current_user)):
+async def get_me(user: UserSchema = Depends(get_current_user)) -> UserSchema:
     return user
 
 
@@ -57,7 +57,7 @@ async def logout(
         request: Request,
         response: Response,
         user: UserSchema = Depends(get_current_user)
-):
+) -> str:
     response.delete_cookie('access_token')
     response.delete_cookie('refresh_token')
 
@@ -69,7 +69,7 @@ async def logout(
 async def abort_all_sessions(
         response: Response,
         user: UserSchema = Depends(get_current_user)
-):
+) -> str:
     response.delete_cookie('access_token')
     response.delete_cookie('refresh_token')
 
@@ -81,7 +81,7 @@ async def abort_all_sessions(
 async def refresh_token(
     request: Request,
     response: Response
-):
+) -> TokenSchema:
     new_token = await AuthService.refresh_token(uuid.UUID(request.cookies.get('refresh_token')))
 
     response.set_cookie(

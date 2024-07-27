@@ -3,7 +3,7 @@ from typing import Union, TypeVar
 
 from pydantic import BaseModel
 
-from sqlalchemy import select, insert, update, delete
+from sqlalchemy import select, insert, update, delete, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 Schema = TypeVar('Schema', bound=BaseModel)
@@ -17,6 +17,12 @@ class BaseDAO:
         query = select(cls.model).filter(*filter).filter_by(**filter_by)
         result = await session.execute(query)
         return result.scalars().all()
+
+    @classmethod
+    async def find_last(cls, session: AsyncSession, order_by, **filter_by):
+        query = select(cls.model).filter_by(**filter_by).order_by(desc(order_by)).limit(1)
+        result = await session.execute(query)
+        return result.scalars().all()[0]
 
     @classmethod
     async def find_pagination(cls, session: AsyncSession, offset: int, limit: int, *filter, **filter_by):

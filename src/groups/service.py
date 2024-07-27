@@ -7,11 +7,13 @@ from fastapi import HTTPException, status
 import docker
 from instagrapi import Client
 from instagrapi.types import HttpUrl
+from sqlalchemy import select
 
 from groups.dao import GroupDAO, ClientDAO, TaskDAO
 from groups.schemas import GroupCreateDBSchema, TaskCreateSchema, ClientCreateDBSchema, SingleTaskCreateSchema, \
     GroupSchema, GroupUpdateSchema, ClientSchema, ClientUpdateSchema, PeopleTaskRequestSchema, TaskUpdateSchema, \
-    TaskSchema, TaskUpdateDBSchema, HashtagsTaskRequestSchema, ParsingTaskRequestSchema, MixedTaskRequestSchema
+    TaskSchema, TaskUpdateDBSchema, HashtagsTaskRequestSchema, ParsingTaskRequestSchema, MixedTaskRequestSchema, \
+    AutoReplyConfigSchema, ConfigSchema
 from groups.models import GroupModel, ClientModel, TaskModel
 from groups.utils import Pagination, is_valid_proxy, add_text_randomize
 from database import async_session_maker
@@ -22,7 +24,7 @@ class GroupService:
     async def create_group(cls, name: str, user_id: uuid.UUID) -> None:
         docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
         container = docker_client.containers.run('python:3.10-alpine3.19', detach=True, tty=True, network_mode='host')
-        container.exec_run('pip install instagrapi Pillow>=8.1 requests', detach=True)
+        container.exec_run('pip install instagrapi Pillow>=8.1 requests redis', detach=True)
 
         async with async_session_maker() as session:
             await GroupDAO.add(
@@ -182,6 +184,92 @@ class ClientService:
             return result
 
     @classmethod
+    async def get_config(cls, client_id: uuid.UUID, user_id: uuid.UUID) -> ConfigSchema:
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Config not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            config = json.loads(client.config)
+            return config
+
+    @classmethod
+    async def set_config(cls, client_id: uuid.UUID, config: ConfigSchema, user_id: uuid.UUID) -> None:
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            config_data = config.model_dump()
+            config_json = json.dumps(config_data)
+
+            await ClientDAO.update(
+                session,
+                ClientModel.id == client_id,
+                obj={
+                    'config': config_json
+                }
+            )
+            await session.commit()
+
+    @classmethod
+    async def get_auto_reply_config(cls, client_id: uuid.UUID, user_id: uuid.UUID) -> AutoReplyConfigSchema:
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Config not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            auto_reply_config = json.loads(client.auto_reply_config)
+            return auto_reply_config
+
+    @classmethod
+    async def set_auto_reply_config(cls, client_id: uuid.UUID, auto_reply_config: AutoReplyConfigSchema,
+                                    user_id: uuid.UUID) -> None:
+        async with async_session_maker() as session:
+            client = await ClientDAO.find_by_id(session, model_id=client_id)
+            if client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            auto_reply_config_data = auto_reply_config.model_dump()
+            auto_reply_config_json = json.dumps(auto_reply_config_data)
+
+            await ClientDAO.update(
+                session,
+                ClientModel.id == client_id,
+                obj={
+                    'auto_reply_config': auto_reply_config_json
+                }
+            )
+
+    @classmethod
     async def get_account_info(cls, client_id: uuid.UUID, user_id: uuid.UUID) -> Dict:
         async with async_session_maker() as session:
             client = await ClientDAO.find_by_id(session, model_id=client_id)
@@ -207,395 +295,547 @@ class ClientService:
                 'followings': info.following_count
             }
 
+    # @classmethod
+    # async def create_people_task(cls, client_id: uuid.UUID, data: PeopleTaskRequestSchema, base_url: str, redis,
+    #                              user_id: uuid.UUID) -> uuid.UUID:
+    #     async with async_session_maker() as session:
+    #         client = await ClientDAO.find_by_id(session, model_id=client_id)
+    #         if client is None:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_404_NOT_FOUND,
+    #                 detail='Client not found'
+    #             )
+    #         if client.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+    #         if group.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+    #         container = docker_client.containers.get(group.docker_id)
+    #
+    #         task = await TaskDAO.add(
+    #             session,
+    #             TaskCreateSchema(
+    #                 status='working',
+    #                 client_id=client_id,
+    #                 action_type='people',
+    #                 progress=f'0/{len(data.users)}'
+    #             )
+    #         )
+    #         task_id = task.id
+    #
+    #         await redis.set(str(client.id), 'working')
+    #
+    #         with open('groups/people_worker.py', 'r') as file:
+    #             command = file.read()
+    #
+    #         edit_url = str(base_url) + f'clients/tasks/task/{task_id}'
+    #
+    #         if client.proxy:
+    #             command = f'settings = {json.loads(client.settings)}\nusers={data.users}\nurl="{edit_url}"\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy="{client.proxy}"\n{command}'.replace(
+    #                 "\'", '"')
+    #         else:
+    #             command = f'settings = {json.loads(client.settings)}\nusers={data.users}\nurl="{edit_url}"\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy=None\n{command}'.replace(
+    #                 "\'", '"')
+    #
+    #         exec_result = container.exec_run(['python', '-c', command], detach=True)
+    #         ps = container.exec_run('ps aux').output.decode('utf-8')
+    #         pid = ps.splitlines()[-2].strip()[:3].strip()
+    #
+    #         await TaskDAO.update(
+    #             session,
+    #             TaskModel.id == task_id,
+    #             obj={'pid': pid}
+    #         )
+    #         await session.commit()
+    #
+    #         return task_id
+    #
+    # @classmethod
+    # async def create_hashtags_task(cls, client_id: uuid.UUID, data: HashtagsTaskRequestSchema, base_url: str, redis,
+    #                                user_id: uuid.UUID) -> uuid.UUID:
+    #     async with async_session_maker() as session:
+    #         client = await ClientDAO.find_by_id(session, model_id=client_id)
+    #         if client is None:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_404_NOT_FOUND,
+    #                 detail='Client not found'
+    #             )
+    #         if client.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+    #         if group.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+    #         container = docker_client.containers.get(group.docker_id)
+    #
+    #         task = await TaskDAO.add(
+    #             session,
+    #             TaskCreateSchema(
+    #                 status='working',
+    #                 client_id=client_id,
+    #                 action_type='hashtag',
+    #                 progress=f'0/{data.hashtags}'
+    #             )
+    #         )
+    #         task_id = task.id
+    #
+    #         await redis.set(str(client.id), 'working')
+    #
+    #         with open('groups/hashtags_worker.py', 'r') as file:
+    #             command = file.read()
+    #
+    #         edit_url = str(base_url) + f'clients/tasks/task/{task_id}'
+    #
+    #         if client.proxy:
+    #             command = f'settings = {json.loads(client.settings)}\nhashtags={data.hashtags}\namount={data.amount}\nurl="{edit_url}"\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy="{client.proxy}"\n{command}'.replace(
+    #                 "\'", '"')
+    #         else:
+    #             command = f'settings = {json.loads(client.settings)}\nhashtags={data.hashtags}\namount={data.amount}\nurl="{edit_url}"\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy=None\n{command}'.replace(
+    #                 "\'", '"')
+    #
+    #         exec_result = container.exec_run(['python', '-c', command], detach=True)
+    #         ps = container.exec_run('ps aux').output.decode('utf-8')
+    #         pid = ps.splitlines()[-2].strip()[:3].strip()
+    #
+    #         await TaskDAO.update(
+    #             session,
+    #             TaskModel.id == task_id,
+    #             obj={'pid': pid}
+    #         )
+    #         await session.commit()
+    #
+    #         return task_id
+    #
+    # @classmethod
+    # async def create_parsing_task(cls, client_id: uuid.UUID, data: ParsingTaskRequestSchema, base_url: str, redis,
+    #                               user_id: uuid.UUID) -> uuid.UUID:
+    #     async with async_session_maker() as session:
+    #         client = await ClientDAO.find_by_id(session, model_id=client_id)
+    #         if client is None:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_404_NOT_FOUND,
+    #                 detail='Client not found'
+    #             )
+    #         if client.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+    #         if group.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+    #         container = docker_client.containers.get(group.docker_id)
+    #
+    #         task = await TaskDAO.add(
+    #             session,
+    #             TaskCreateSchema(
+    #                 status='working',
+    #                 client_id=client_id,
+    #                 action_type='parse',
+    #                 progress=f'0/{len(data.users)}'
+    #             )
+    #         )
+    #         task_id = task.id
+    #
+    #         await redis.set(str(client.id), 'working')
+    #
+    #         with open('groups/parse_worker.py', 'r') as file:
+    #             command = file.read()
+    #
+    #         edit_url = str(base_url) + f'clients/tasks/task/{task_id}'
+    #
+    #         if client.proxy:
+    #             command = f'settings = {json.loads(client.settings)}\nusers={data.users}\nurl="{edit_url}"\ndata={data.model_dump(exclude_unset=True)}\nproxy="{client.proxy}"\n{command}'.replace(
+    #                 "\'", '"')
+    #         else:
+    #             command = f'settings = {json.loads(client.settings)}\nusers={data.users}\nurl="{edit_url}"\ndata={data.model_dump(exclude_unset=True)}\nproxy=None\n{command}'.replace(
+    #                 "\'", '"')
+    #
+    #         exec_result = container.exec_run(['python', '-c', command], detach=True)
+    #         ps = container.exec_run('ps aux').output.decode('utf-8')
+    #         pid = ps.splitlines()[-2].strip()[:3].strip()
+    #
+    #         await TaskDAO.update(
+    #             session,
+    #             TaskModel.id == task_id,
+    #             obj={'pid': pid}
+    #         )
+    #         await session.commit()
+    #
+    #         return task_id
+
+    # @classmethod
+    # async def create_mixed_task(cls, client_id: uuid.UUID, data: MixedTaskRequestSchema, base_url: str, redis,
+    #                             user_id: uuid.UUID) -> uuid.UUID:
+    #     async with async_session_maker() as session:
+    #         client = await ClientDAO.find_by_id(session, model_id=client_id)
+    #         if client is None:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_404_NOT_FOUND,
+    #                 detail='Client not found'
+    #             )
+    #         if client.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+    #         if group.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+    #         container = docker_client.containers.get(group.docker_id)
+    #
+    #         progress_amount = 0
+    #         if data.hashtags:
+    #             progress_amount += len(data.hashtags_config.hashtags)
+    #         if data.people:
+    #             progress_amount += len(data.people_config.users)
+    #         if data.parsing:
+    #             progress_amount += len(data.parsing_config.users)
+    #
+    #         task = await TaskDAO.add(
+    #             session,
+    #             TaskCreateSchema(
+    #                 status='working',
+    #                 client_id=client_id,
+    #                 action_type='mixed',
+    #                 progress=f'0/{progress_amount}'
+    #             )
+    #         )
+    #         task_id = task.id
+    #
+    #         await redis.set(str(client.id), 'working')
+    #
+    #         with open('groups/mixed_worker.py', 'r') as file:
+    #             command = file.read()
+    #
+    #         edit_url = str(base_url) + f'clients/tasks/task/{task_id}'
+    #
+    #         if client.proxy:
+    #             command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\nprogress_amount={progress_amount}\ndata={data.model_dump(exclude_unset=True)}\nproxy="{client.proxy}"\n{command}'.replace(
+    #                 "\'", '"')
+    #         else:
+    #             command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\nprogress_amount={progress_amount}\ndata={data.model_dump(exclude_unset=True)}\nproxy=None\n{command}'.replace(
+    #                 "\'", '"')
+    #
+    #         exec_result = container.exec_run(['python', '-c', command], detach=True)
+    #         ps = container.exec_run('ps aux').output.decode('utf-8')
+    #         pid = ps.splitlines()[-2].strip()[:3].strip()
+    #
+    #         await TaskDAO.update(
+    #             session,
+    #             TaskModel.id == task_id,
+    #             obj={'pid': pid}
+    #         )
+    #         await session.commit()
+    #
+    #         return task_id
+
     @classmethod
-    async def create_people_task(cls, client_id: uuid.UUID, data: PeopleTaskRequestSchema, base_url: str, redis,
-                                 user_id: uuid.UUID) -> uuid.UUID:
+    async def create_mixed_task(cls, clients_ids: List[uuid.UUID], base_url: str, redis,
+                                user_id: uuid.UUID) -> List[uuid.UUID]:
         async with async_session_maker() as session:
-            client = await ClientDAO.find_by_id(session, model_id=client_id)
-            if client is None:
+            query = select(ClientModel).filter(ClientModel.id.in_(clients_ids), ClientModel.user_id == user_id)
+            result = await session.execute(query)
+            clients = result.scalars().all()
+
+            if not clients:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Client not found'
-                )
-            if client.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
+                    detail='Clients not found'
                 )
 
-            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
-            if group.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
+            group = await GroupDAO.find_one(session, user_id=user_id)
 
             docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
             container = docker_client.containers.get(group.docker_id)
 
-            task = await TaskDAO.add(
-                session,
-                TaskCreateSchema(
-                    status='working',
-                    client_id=client_id,
-                    action_type='people',
-                    progress=f'0/{len(data.users)}'
+            tasks_ids = []
+            for client in clients:
+                config = client.config
+
+                progress_amount = 0
+                if config.hashtags:
+                    progress_amount += len(config.hashtags_config.hashtags)
+                if config.people:
+                    progress_amount += len(config.people_config.users)
+                if config.parsing:
+                    progress_amount += len(config.parsing_config.users)
+
+                task = await TaskDAO.add(
+                    session,
+                    TaskCreateSchema(
+                        status='working',
+                        client_id=client.id,
+                        action_type='mixed'
+                    )
                 )
-            )
-            task_id = task.id
+                task_id = task.id
 
-            await redis.set(str(client.id), 'working')
+                await redis.set(str(client.id), 'working')
 
-            with open('groups/people_worker.py', 'r') as file:
-                command = file.read()
+                with open('groups/mixed_worker.py', 'r') as file:
+                    command = file.read()
 
-            edit_url = str(base_url) + f'clients/tasks/task/{task_id}'
+                edit_url = base_url + f'clients/tasks/task/{task_id}'
 
-            if client.proxy:
-                command = f'settings = {json.loads(client.settings)}\nusers={data.users}\nurl="{edit_url}"\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy="{client.proxy}"\n{command}'.replace(
-                    "\'", '"')
-            else:
-                command = f'settings = {json.loads(client.settings)}\nusers={data.users}\nurl="{edit_url}"\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy=None\n{command}'.replace(
-                    "\'", '"')
+                if client.proxy:
+                    command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\ntask_id="{task_id}"\nprogress_amount={progress_amount}\ndata={json.loads(config)}\nproxy="{client.proxy}"\n{command}'.replace(
+                        "\'", '"')
+                else:
+                    command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\ntask_id="{task_id}"\nprogress_amount={progress_amount}\ndata={json.loads(config)}\nproxy=None\n{command}'.replace(
+                        "\'", '"')
 
-            exec_result = container.exec_run(['python', '-c', command], detach=True)
-            ps = container.exec_run('ps aux').output.decode('utf-8')
-            pid = ps.splitlines()[-2].strip()[:3].strip()
-
-            await TaskDAO.update(
-                session,
-                TaskModel.id == task_id,
-                obj={'pid': pid}
-            )
-            await session.commit()
-
-            return task_id
-
-    @classmethod
-    async def create_hashtags_task(cls, client_id: uuid.UUID, data: HashtagsTaskRequestSchema, base_url: str, redis,
-                                   user_id: uuid.UUID) -> uuid.UUID:
-        async with async_session_maker() as session:
-            client = await ClientDAO.find_by_id(session, model_id=client_id)
-            if client is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Client not found'
-                )
-            if client.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-
-            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
-            if group.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-
-            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
-            container = docker_client.containers.get(group.docker_id)
-
-            task = await TaskDAO.add(
-                session,
-                TaskCreateSchema(
-                    status='working',
-                    client_id=client_id,
-                    action_type='hashtag',
-                    progress=f'0/{data.hashtags}'
-                )
-            )
-            task_id = task.id
-
-            await redis.set(str(client.id), 'working')
-
-            with open('groups/hashtags_worker.py', 'r') as file:
-                command = file.read()
-
-            edit_url = str(base_url) + f'clients/tasks/task/{task_id}'
-
-            if client.proxy:
-                command = f'settings = {json.loads(client.settings)}\nhashtags={data.hashtags}\namount={data.amount}\nurl="{edit_url}"\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy="{client.proxy}"\n{command}'.replace(
-                    "\'", '"')
-            else:
-                command = f'settings = {json.loads(client.settings)}\nhashtags={data.hashtags}\namount={data.amount}\nurl="{edit_url}"\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy=None\n{command}'.replace(
-                    "\'", '"')
-
-            exec_result = container.exec_run(['python', '-c', command], detach=True)
-            ps = container.exec_run('ps aux').output.decode('utf-8')
-            pid = ps.splitlines()[-2].strip()[:3].strip()
-
-            await TaskDAO.update(
-                session,
-                TaskModel.id == task_id,
-                obj={'pid': pid}
-            )
-            await session.commit()
-
-            return task_id
-
-    @classmethod
-    async def create_parsing_task(cls, client_id: uuid.UUID, data: ParsingTaskRequestSchema, base_url: str, redis,
-                                  user_id: uuid.UUID) -> uuid.UUID:
-        async with async_session_maker() as session:
-            client = await ClientDAO.find_by_id(session, model_id=client_id)
-            if client is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Client not found'
-                )
-            if client.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-
-            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
-            if group.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-
-            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
-            container = docker_client.containers.get(group.docker_id)
-
-            task = await TaskDAO.add(
-                session,
-                TaskCreateSchema(
-                    status='working',
-                    client_id=client_id,
-                    action_type='parse',
-                    progress=f'0/{len(data.users)}'
-                )
-            )
-            task_id = task.id
-
-            await redis.set(str(client.id), 'working')
-
-            with open('groups/parse_worker.py', 'r') as file:
-                command = file.read()
-
-            edit_url = str(base_url) + f'clients/tasks/task/{task_id}'
-
-            if client.proxy:
-                command = f'settings = {json.loads(client.settings)}\nusers={data.users}\nurl="{edit_url}"\ndata={data.model_dump(exclude_unset=True)}\nproxy="{client.proxy}"\n{command}'.replace(
-                    "\'", '"')
-            else:
-                command = f'settings = {json.loads(client.settings)}\nusers={data.users}\nurl="{edit_url}"\ndata={data.model_dump(exclude_unset=True)}\nproxy=None\n{command}'.replace(
-                    "\'", '"')
-
-            exec_result = container.exec_run(['python', '-c', command], detach=True)
-            ps = container.exec_run('ps aux').output.decode('utf-8')
-            pid = ps.splitlines()[-2].strip()[:3].strip()
-
-            await TaskDAO.update(
-                session,
-                TaskModel.id == task_id,
-                obj={'pid': pid}
-            )
-            await session.commit()
-
-            return task_id
-
-    @classmethod
-    async def create_mixed_task(cls, client_id: uuid.UUID, data: MixedTaskRequestSchema, base_url: str, redis,
-                                user_id: uuid.UUID) -> uuid.UUID:
-        async with async_session_maker() as session:
-            client = await ClientDAO.find_by_id(session, model_id=client_id)
-            if client is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Client not found'
-                )
-            if client.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-
-            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
-            if group.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-
-            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
-            container = docker_client.containers.get(group.docker_id)
-
-            progress_amount = 0
-            if data.hashtags:
-                progress_amount += len(data.hashtags_config.hashtags)
-            if data.people:
-                progress_amount += len(data.people_config.users)
-            if data.parsing:
-                progress_amount += len(data.parsing_config.users)
-
-            task = await TaskDAO.add(
-                session,
-                TaskCreateSchema(
-                    status='working',
-                    client_id=client_id,
-                    action_type='mixed',
-                    progress=f'0/{progress_amount}'
-                )
-            )
-            task_id = task.id
-
-            await redis.set(str(client.id), 'working')
-
-            with open('groups/mixed_worker.py', 'r') as file:
-                command = file.read()
-
-            edit_url = str(base_url) + f'clients/tasks/task/{task_id}'
-
-            if client.proxy:
-                command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\nprogress_amount={progress_amount}\ndata={data.model_dump(exclude_unset=True)}\nproxy="{client.proxy}"\n{command}'.replace(
-                    "\'", '"')
-            else:
-                command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\nprogress_amount={progress_amount}\ndata={data.model_dump(exclude_unset=True)}\nproxy=None\n{command}'.replace(
-                    "\'", '"')
-
-            exec_result = container.exec_run(['python', '-c', command], detach=True)
-            ps = container.exec_run('ps aux').output.decode('utf-8')
-            pid = ps.splitlines()[-2].strip()[:3].strip()
-
-            await TaskDAO.update(
-                session,
-                TaskModel.id == task_id,
-                obj={'pid': pid}
-            )
-            await session.commit()
-
-            return task_id
-
-    @classmethod
-    async def pause_task(cls, task_id: uuid.UUID, client_id: uuid.UUID, redis, user_id: uuid.UUID) -> None:
-        async with async_session_maker() as session:
-            task = await TaskDAO.find_by_id(session, model_id=task_id)
-            if task is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Task not found'
-                )
-            if task.client_id != client_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-
-            client = await ClientDAO.find_by_id(session, model_id=client_id)
-            if client is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Client not found'
-                )
-            if client.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-
-            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
-            if group is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Group not found'
-                )
-            if group.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-
-            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
-            container = docker_client.containers.get(group.docker_id)
-            if task.status.value == 'working':
-                # container.exec_run(f'kill -STOP {task.pid}')
-                container.exec_run(f'kill -SIGTSTP {task.pid}')
-
-    @classmethod
-    async def restart_task(cls, task_id: uuid.UUID, client_id: uuid.UUID, redis, user_id: uuid.UUID) -> None:
-        async with async_session_maker() as session:
-            task = await TaskDAO.find_by_id(session, model_id=task_id)
-            if task is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Task not found'
-                )
-            if task.client_id != client_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-
-            client = await ClientDAO.find_by_id(session, model_id=client_id)
-            if client is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Client not found'
-                )
-            if client.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-
-            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
-            if group is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Group not found'
-                )
-            if group.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-
-            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
-            container = docker_client.containers.get(group.docker_id)
-
-            if task.status.value == 'paused':
-                # container.exec_run(f'kill -CONT {task.pid}', detach=True)
-                container.exec_run(f'kill -SIGCONT {task.pid}')
+                exec_result = container.exec_run(['python', '-c', command], detach=True)
+                ps = container.exec_run('ps aux').output.decode('utf-8')
+                pid = ps.splitlines()[-2].strip()[:3].strip()
 
                 await TaskDAO.update(
                     session,
                     TaskModel.id == task_id,
-                    obj={'status': 'working'}
+                    obj={'pid': pid}
                 )
-                await session.commit()
+
+                tasks_ids += task_id
+
+            await session.commit()
+            return tasks_ids
+
+    # @classmethod
+    # async def pause_task(cls, task_id: uuid.UUID, client_id: uuid.UUID, redis, user_id: uuid.UUID) -> None:
+    #     async with async_session_maker() as session:
+    #         task = await TaskDAO.find_by_id(session, model_id=task_id)
+    #         if task is None:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_404_NOT_FOUND,
+    #                 detail='Task not found'
+    #             )
+    #         if task.client_id != client_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         client = await ClientDAO.find_by_id(session, model_id=client_id)
+    #         if client is None:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_404_NOT_FOUND,
+    #                 detail='Client not found'
+    #             )
+    #         if client.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+    #         if group is None:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_404_NOT_FOUND,
+    #                 detail='Group not found'
+    #             )
+    #         if group.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+    #         container = docker_client.containers.get(group.docker_id)
+    #         if task.status.value == 'working':
+    #             # container.exec_run(f'kill -STOP {task.pid}')
+    #             container.exec_run(f'kill -SIGTSTP {task.pid}')
 
     @classmethod
-    async def stop_task(cls, task_id: uuid.UUID, client_id: uuid.UUID, redis, user_id: uuid.UUID) -> None:
+    async def pause_task(cls, clients_ids: List[uuid.UUID], user_id: uuid.UUID) -> None:
         async with async_session_maker() as session:
-            task = await TaskDAO.find_by_id(session, model_id=task_id)
-            if task is None:
+            query = select(ClientModel.id).filter(ClientModel.id.in_(clients_ids), ClientModel.user_id == user_id)
+            result = await session.execute(query)
+            clients_ids = result.scalars().all()
+
+            if not clients_ids:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Task not found'
-                )
-            if task.client_id != client_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
+                    detail='Clients not found'
                 )
 
-            client = await ClientDAO.find_by_id(session, model_id=client_id)
-            if client is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Client not found'
-                )
-            if client.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-
-            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
-            if group is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Group not found'
-                )
-            if group.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
+            group = await GroupDAO.find_one(session, user_id=user_id)
 
             docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
             container = docker_client.containers.get(group.docker_id)
-            if task.status.value == 'working':
-                # container.exec_run(f'kill {task.pid}', detach=True)
-                container.exec_run(f'kill -SIGTERM {task.pid}')
+
+            for client_id in clients_ids:
+                task = await TaskDAO.find_last(session, TaskModel.time_start, client_id=client_id)
+
+                if task.status.value == 'working':
+                    # container.exec_run(f'kill -STOP {task.pid}')
+                    container.exec_run(f'kill -SIGTSTP {task.pid}')
+
+    @classmethod
+    async def restart_task(cls, clients_ids: List[uuid.UUID], user_id: uuid.UUID) -> None:
+        async with async_session_maker() as session:
+            query = select(ClientModel.id).filter(ClientModel.id.in_(clients_ids), ClientModel.user_id == user_id)
+            result = await session.execute(query)
+            clients_ids = result.scalars().all()
+
+            if not clients_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Clients not found'
+                )
+
+            group = await GroupDAO.find_one(session, user_id=user_id)
+
+            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+            container = docker_client.containers.get(group.docker_id)
+
+            for client_id in clients_ids:
+                task = await TaskDAO.find_last(session, TaskModel.time_start, client_id=client_id)
+
+                if task.status.value == 'paused':
+                    # container.exec_run(f'kill -CONT {task.pid}', detach=True)
+                    container.exec_run(f'kill -SIGCONT {task.pid}')
+
+                    await TaskDAO.update(
+                        session,
+                        TaskModel.id == task.id,
+                        obj={'status': 'working'}
+                    )
+            await session.commit()
+
+    @classmethod
+    async def stop_task(cls, clients_ids: List[uuid.UUID], user_id: uuid.UUID) -> None:
+        async with async_session_maker() as session:
+            query = select(ClientModel.id).filter(ClientModel.id.in_(clients_ids), ClientModel.user_id == user_id)
+            result = await session.execute(query)
+            clients_ids = result.scalars().all()
+
+            if not clients_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Clients not found'
+                )
+
+            group = await GroupDAO.find_one(session, user_id=user_id)
+
+            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+            container = docker_client.containers.get(group.docker_id)
+
+            for client_id in clients_ids:
+                task = await TaskDAO.find_last(session, TaskModel.time_start, client_id=client_id)
+
+                if task.status.value == 'working':
+                    # container.exec_run(f'kill {task.pid}', detach=True)
+                    container.exec_run(f'kill -SIGTERM {task.pid}')
+
+    # @classmethod
+    # async def restart_task(cls, task_id: uuid.UUID, client_id: uuid.UUID, redis, user_id: uuid.UUID) -> None:
+    #     async with async_session_maker() as session:
+    #         task = await TaskDAO.find_by_id(session, model_id=task_id)
+    #         if task is None:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_404_NOT_FOUND,
+    #                 detail='Task not found'
+    #             )
+    #         if task.client_id != client_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         client = await ClientDAO.find_by_id(session, model_id=client_id)
+    #         if client is None:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_404_NOT_FOUND,
+    #                 detail='Client not found'
+    #             )
+    #         if client.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+    #         if group is None:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_404_NOT_FOUND,
+    #                 detail='Group not found'
+    #             )
+    #         if group.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+    #         container = docker_client.containers.get(group.docker_id)
+    #
+    #         if task.status.value == 'paused':
+    #             # container.exec_run(f'kill -CONT {task.pid}', detach=True)
+    #             container.exec_run(f'kill -SIGCONT {task.pid}')
+    #
+    #             await TaskDAO.update(
+    #                 session,
+    #                 TaskModel.id == task_id,
+    #                 obj={'status': 'working'}
+    #             )
+    #             await session.commit()
+    #
+    # @classmethod
+    # async def stop_task(cls, task_id: uuid.UUID, client_id: uuid.UUID, redis, user_id: uuid.UUID) -> None:
+    #     async with async_session_maker() as session:
+    #         task = await TaskDAO.find_by_id(session, model_id=task_id)
+    #         if task is None:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_404_NOT_FOUND,
+    #                 detail='Task not found'
+    #             )
+    #         if task.client_id != client_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         client = await ClientDAO.find_by_id(session, model_id=client_id)
+    #         if client is None:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_404_NOT_FOUND,
+    #                 detail='Client not found'
+    #             )
+    #         if client.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+    #         if group is None:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_404_NOT_FOUND,
+    #                 detail='Group not found'
+    #             )
+    #         if group.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+    #         container = docker_client.containers.get(group.docker_id)
+    #         if task.status.value == 'working':
+    #             # container.exec_run(f'kill {task.pid}', detach=True)
+    #             container.exec_run(f'kill -SIGTERM {task.pid}')
 
     @classmethod
     async def edit_task(cls, task_id: uuid.UUID, task: TaskUpdateSchema, redis):
@@ -625,7 +865,7 @@ class ClientService:
                 await redis.set(str(client.id), 'working')
 
     @classmethod
-    async def get_tasks(cls, client_id: uuid.UUID, page: int, user_id: uuid.UUID) -> Optional[List[TaskSchema]]:
+    async def get_tasks(cls, client_id: uuid.UUID, page: int, redis, user_id: uuid.UUID) -> Optional[List[TaskSchema]]:
         pagination = Pagination(page)
 
         async with async_session_maker() as session:
@@ -643,12 +883,12 @@ class ClientService:
             tasks = await TaskDAO.find_pagination(session, offset=pagination.offset, limit=pagination.limit,
                                                   client_id=client_id)
             if tasks:
-                result = [task.to_schema() for task in tasks]
+                result = [await task.to_schema(redis) for task in tasks]
                 return result
             return None
 
     @classmethod
-    async def detail_task(cls, task_id: uuid.UUID, user_id: uuid.UUID) -> TaskSchema:
+    async def detail_task(cls, task_id: uuid.UUID, redis, user_id: uuid.UUID) -> TaskSchema:
         async with async_session_maker() as session:
             task = await TaskDAO.find_by_id(session, model_id=task_id)
             if task is None:
@@ -663,7 +903,7 @@ class ClientService:
                     status_code=status.HTTP_403_FORBIDDEN
                 )
 
-            result = task.to_schema()
+            result = await task.to_schema(redis)
             return result
 
     @classmethod
@@ -671,50 +911,104 @@ class ClientService:
         client_status = await redis.get(str(client_id))
         return client_status
 
+    # @classmethod
+    # async def auto_reply(cls, client_id: uuid.UUID, text: str, no_dialogs_in: Dict, user_id: uuid.UUID) -> None:
+    #     async with async_session_maker() as session:
+    #         client = await ClientDAO.find_by_id(session, model_id=client_id)
+    #         if client is None:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_404_NOT_FOUND,
+    #                 detail='Client not found'
+    #             )
+    #         if client.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+    #         if group.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         with open('groups/auto_reply_worker.py', 'r') as file:
+    #             command = file.read()
+    #
+    #         if client.proxy:
+    #             command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in}\ntext="{text}"\nproxy="{client.proxy}"\n{command}'.replace(
+    #                 "\'", '"')
+    #         else:
+    #             command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in}\ntext="{text}"\nproxy=None\n{command}'.replace(
+    #                 "\'", '"')
+    #
+    #         docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+    #         container = docker_client.containers.get(group.docker_id)
+    #
+    #         # await redis.set(str(client.id), 'working')
+    #
+    #         container.exec_run(['python', '-c', command], detach=True)
+    #         ps = container.exec_run('ps aux').output.decode('utf-8')
+    #         pid = ps.splitlines()[-2].strip()[:3].strip()
+    #
+    #         await ClientDAO.update(
+    #             session,
+    #             ClientModel.id == client.id,
+    #             obj={'auto_reply_id': pid}
+    #         )
+    #         await session.commit()
+
     @classmethod
-    async def auto_reply(cls, client_id: uuid.UUID, text: str, no_dialogs_in: Dict, user_id: uuid.UUID) -> None:
+    async def auto_reply(cls, clients_ids: List[uuid.UUID], user_id: uuid.UUID) -> None:
         async with async_session_maker() as session:
-            client = await ClientDAO.find_by_id(session, model_id=client_id)
-            if client is None:
+            query = select(ClientModel).filter(ClientModel.id.in_(clients_ids), ClientModel.user_id == user_id)
+            result = await session.execute(query)
+            clients = result.scalars().all()
+
+            if not clients:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Client not found'
-                )
-            if client.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
+                    detail='Clients not found'
                 )
 
-            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
-            if group.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-
-            with open('groups/auto_reply_worker.py', 'r') as file:
-                command = file.read()
-
-            if client.proxy:
-                command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in}\ntext="{text}"\nproxy="{client.proxy}"\n{command}'.replace(
-                    "\'", '"')
-            else:
-                command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in}\ntext="{text}"\nproxy=None\n{command}'.replace(
-                    "\'", '"')
+            group = await GroupDAO.find_one(session, user_id=user_id)
 
             docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
             container = docker_client.containers.get(group.docker_id)
 
-            # await redis.set(str(client.id), 'working')
+            with open('groups/auto_reply_worker.py', 'r') as file:
+                command = file.read()
 
-            container.exec_run(['python', '-c', command], detach=True)
-            ps = container.exec_run('ps aux').output.decode('utf-8')
-            pid = ps.splitlines()[-2].strip()[:3].strip()
+            for client in clients:
+                if client.auto_reply_id:
+                    container.exec_run(f'kill {client.auto_reply_id}')
+                else:
+                    pass
 
-            await ClientDAO.update(
-                session,
-                ClientModel.id == client.id,
-                obj={'auto_reply_id': pid}
-            )
+                auto_reply_config = json.loads(client.auto_reply_config)
+                text = auto_reply_config.get("text")
+                timeout = auto_reply_config.get("timeout")
+
+                if client.proxy:
+                    worker_command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={timeout}\ntext="{text}"\nproxy="{client.proxy}"\n{command}'.replace(
+                        "\'", '"')
+                else:
+                    worker_command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={timeout}\ntext="{text}"\nproxy=None\n{command}'.replace(
+                        "\'", '"')
+
+                docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+                container = docker_client.containers.get(group.docker_id)
+
+                # await redis.set(str(client.id), 'working')
+
+                container.exec_run(['python', '-c', worker_command], detach=True)
+                ps = container.exec_run('ps aux').output.decode('utf-8')
+                pid = ps.splitlines()[-2].strip()[:3].strip()
+
+                await ClientDAO.update(
+                    session,
+                    ClientModel.id == client.id,
+                    obj={'auto_reply_id': pid}
+                )
             await session.commit()
 
     @classmethod
@@ -736,82 +1030,158 @@ class ClientService:
             return False
 
     @classmethod
-    async def delete_auto_reply(cls, client_id: uuid.UUID, user_id: uuid.UUID):
+    async def delete_auto_reply(cls, clients_ids: List[uuid.UUID], user_id: uuid.UUID) -> None:
         async with async_session_maker() as session:
-            client = await ClientDAO.find_by_id(session, model_id=client_id)
-            if client is None:
+            query = select(ClientModel).filter(ClientModel.id.in_(clients_ids), ClientModel.user_id == user_id)
+            result = await session.execute(query)
+            clients = result.scalars().all()
+
+            if not clients:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Client not found'
-                )
-            if client.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
+                    detail='Clients not found'
                 )
 
-            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
-            if group.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
+            group = await GroupDAO.find_one(session, user_id=user_id)
 
             docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
             container = docker_client.containers.get(group.docker_id)
-            container.exec_run(f'kill {client.auto_reply_id}')
 
-            await ClientDAO.update(
-                session,
-                ClientModel.id == client.id,
-                obj={'auto_reply_id': None}
-            )
+            for client in clients:
+                container.exec_run(f'kill {client.auto_reply_id}')
+
+                await ClientDAO.update(
+                    session,
+                    ClientModel.id == client.id,
+                    obj={'auto_reply_id': None}
+                )
             await session.commit()
 
-    @classmethod
-    async def edit_auto_reply(cls, client_id: uuid.UUID, text: str, no_dialogs_in: Dict, user_id: uuid.UUID):
-        async with async_session_maker() as session:
-            client = await ClientDAO.find_by_id(session, model_id=client_id)
-            if client is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Client not found'
-                )
-            if client.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
+    # @classmethod
+    # async def delete_auto_reply(cls, client_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    #     async with async_session_maker() as session:
+    #         client = await ClientDAO.find_by_id(session, model_id=client_id)
+    #         if client is None:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_404_NOT_FOUND,
+    #                 detail='Client not found'
+    #             )
+    #         if client.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+    #         if group.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+    #         container = docker_client.containers.get(group.docker_id)
+    #         container.exec_run(f'kill {client.auto_reply_id}')
+    #
+    #         await ClientDAO.update(
+    #             session,
+    #             ClientModel.id == client.id,
+    #             obj={'auto_reply_id': None}
+    #         )
+    #         await session.commit()
 
-            group = await GroupDAO.find_by_id(session, model_id=client.group_id)
-            if group.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
+    # @classmethod
+    # async def set_auto_reply(cls, clients_ids: List[uuid.UUID], user_id: uuid.UUID) -> None:
+    #     async with async_session_maker() as session:
+    #         query = select(ClientModel).filter(ClientModel.id.in_(clients_ids), ClientModel.user_id == user_id)
+    #         result = await session.execute(query)
+    #         clients = result.scalars().all()
+    #
+    #         if not clients:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_404_NOT_FOUND,
+    #                 detail='Clients not found'
+    #             )
+    #
+    #         group = await GroupDAO.find_one(session, user_id=user_id)
+    #
+    #         docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+    #         container = docker_client.containers.get(group.docker_id)
+    #
+    #         with open('groups/auto_reply_worker.py', 'r') as file:
+    #             command = file.read()
+    #
+    #         for client in clients:
+    #             container.exec_run(f'kill {client.auto_reply_id}')
+    #
+    #             auto_reply_config = json.loads(client.auto_reply_config)
+    #             text = auto_reply_config.get("text")
+    #             timeout = auto_reply_config.get("timeout")
+    #
+    #             if client.proxy:
+    #                 worker_command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={timeout}\ntext="{text}"\nproxy="{client.proxy}"\n{command}'.replace(
+    #                     "\'", '"')
+    #             else:
+    #                 worker_command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={timeout}\ntext="{text}"\nproxy=None\n{command}'.replace(
+    #                     "\'", '"')
+    #
+    #             # await redis.set(str(client.id), 'working')
+    #
+    #             exec_command = container.exec_run(['python', '-c', command], detach=True)
+    #             ps = container.exec_run('ps aux').output.decode('utf-8')
+    #             pid = ps.splitlines()[-2].strip()[:3].strip()
+    #
+    #             await ClientDAO.update(
+    #                 session,
+    #                 ClientModel.id == client.id,
+    #                 obj={'auto_reply_id': pid}
+    #             )
+    #         await session.commit()
 
-            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
-            container = docker_client.containers.get(group.docker_id)
-            container.exec_run(f'kill {client.auto_reply_id}')
-
-            with open('groups/auto_reply_worker.py', 'r') as file:
-                command = file.read()
-
-            if client.proxy:
-                command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in}\ntext="{text}"\nproxy="{client.proxy}"\n{command}'.replace(
-                    "\'", '"')
-            else:
-                command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in}\ntext="{text}"\nproxy=None\n{command}'.replace(
-                    "\'", '"')
-
-            # await redis.set(str(client.id), 'working')
-
-            exec_command = container.exec_run(['python', '-c', command], detach=True)
-            ps = container.exec_run('ps aux').output.decode('utf-8')
-            pid = ps.splitlines()[-2].strip()[:3].strip()
-
-            await ClientDAO.update(
-                session,
-                ClientModel.id == client.id,
-                obj={'auto_reply_id': pid}
-            )
-            await session.commit()
+    # @classmethod
+    # async def edit_auto_reply(cls, client_id: uuid.UUID, text: str, no_dialogs_in: Dict, user_id: uuid.UUID):
+    #     async with async_session_maker() as session:
+    #         client = await ClientDAO.find_by_id(session, model_id=client_id)
+    #         if client is None:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_404_NOT_FOUND,
+    #                 detail='Client not found'
+    #             )
+    #         if client.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         group = await GroupDAO.find_by_id(session, model_id=client.group_id)
+    #         if group.user_id != user_id:
+    #             raise HTTPException(
+    #                 status_code=status.HTTP_403_FORBIDDEN
+    #             )
+    #
+    #         docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+    #         container = docker_client.containers.get(group.docker_id)
+    #         container.exec_run(f'kill {client.auto_reply_id}')
+    #
+    #         with open('groups/auto_reply_worker.py', 'r') as file:
+    #             command = file.read()
+    #
+    #         if client.proxy:
+    #             command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in}\ntext="{text}"\nproxy="{client.proxy}"\n{command}'.replace(
+    #                 "\'", '"')
+    #         else:
+    #             command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={no_dialogs_in}\ntext="{text}"\nproxy=None\n{command}'.replace(
+    #                 "\'", '"')
+    #
+    #         # await redis.set(str(client.id), 'working')
+    #
+    #         exec_command = container.exec_run(['python', '-c', command], detach=True)
+    #         ps = container.exec_run('ps aux').output.decode('utf-8')
+    #         pid = ps.splitlines()[-2].strip()[:3].strip()
+    #
+    #         await ClientDAO.update(
+    #             session,
+    #             ClientModel.id == client.id,
+    #             obj={'auto_reply_id': pid}
+    #         )
+    #         await session.commit()
 
     @classmethod
     async def get_clients(cls, page: int, redis, user_id: uuid.UUID) -> Optional[List[ClientSchema]]:

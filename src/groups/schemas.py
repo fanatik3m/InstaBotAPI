@@ -52,7 +52,7 @@ class ClientSchema(BaseModel):
     proxy: Optional[str]
     photo: Optional[str]
     description: Optional[str]
-    settings: Dict
+    config: Optional[Dict]
     auto_reply_id: Optional[str]
     user_id: uuid.UUID
     group_id: uuid.UUID
@@ -76,7 +76,7 @@ class ClientCreateDBSchema(ClientBaseSchema):
 
 
 class ClientUpdateSchema(BaseModel):
-    settings: Optional[str] = Field(None)
+    proxy: Optional[str] = Field(None)
     description: Optional[str] = Field(None)
 
 
@@ -121,6 +121,7 @@ class TaskSchema(BaseModel):
     pid: str
     status: Status
     action_type: ActionType
+    progress: str
     time_start: datetime.datetime
     time_end: Optional[datetime.datetime]
     errors: Optional[Dict]
@@ -139,11 +140,9 @@ class TaskCreateSchema(TaskBaseSchema):
     client_id: Optional[uuid.UUID] = Field(None)
     action_type: Optional[ActionType] = Field(None)
     pid: Optional[str] = Field(None)
-    progress: Optional[str] = Field(None)
 
 
 class TaskUpdateSchema(TaskBaseSchema):
-    progress: Optional[str] = Field(None)
     errors: Optional[str] = Field(None)
     output: Optional[str] = Field(None)
 
@@ -197,3 +196,17 @@ class MixedTaskRequestSchema(BaseModel):
     hashtags_config: HashtagsTaskRequestSchema
     parsing: bool
     parsing_config: ParsingTaskRequestSchema
+
+
+class ConfigSchema(MixedTaskRequestSchema):
+    pass
+
+
+class AutoReplyConfigSchema(BaseModel):
+    text: str
+    timeout: Dict
+
+
+class AccountInfoSchema(BaseModel):
+    followers: int
+    followings: int
