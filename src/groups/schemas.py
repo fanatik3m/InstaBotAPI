@@ -49,7 +49,7 @@ class SingleTaskCreateSchema(BaseModel):
 class ClientSchema(BaseModel):
     id: uuid.UUID
     username: str
-    proxy: str
+    proxy: Optional[str]
     photo: Optional[str]
     description: Optional[str]
     settings: Dict

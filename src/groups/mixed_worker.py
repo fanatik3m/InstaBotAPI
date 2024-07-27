@@ -24,7 +24,7 @@ progress_processed = 0
 
 paused = False
 
-if data.people:
+if data.get('people'):
     people_timeout_from = data.get('people_config').get('timeout_from')
     people_timeout_to = data.get('people_config').get('timeout_to')
     people_posts_timeout_from = data.get('people_config').get('posts_timeout_from')
@@ -40,7 +40,7 @@ if data.people:
     people_stories_amount = data.get('people_config').get('stories_amount')
     people_reels_amount = data.get('people_config').get('reels_amount')
     people_posts_amount = data.get('people_config').get('posts_amount')
-if data.hashtags:
+if data.get('hashtags'):
     hashtags_timeout_from = data.get('hashtags_config').get('timeout_from')
     hashtags_timeout_to = data.get('hashtags_config').get('timeout_to')
     hashtags_posts_timeout_from = data.get('hashtags_config').get('posts_timeout_from')
@@ -56,7 +56,7 @@ if data.hashtags:
     hashtags_stories_amount = data.get('hashtags_config').get('stories_amount')
     hashtags_reels_amount = data.get('hashtags_config').get('reels_amount')
     hashtags_posts_amount = data.get('hashtags_config').get('posts_amount')
-if data.parsing:
+if data.get('parsing'):
     parsing_followings = data.get('parsing_config').get('followings')
     parsing_followings_amount = data.get('parsing_config').get('followings_amount')
     parsing_followers = data.get('parsing_config').get('followers')
@@ -104,7 +104,9 @@ signal.signal(signal.SIGTERM, handle_term)
 signal.signal(signal.SIGCONT, handle_resume)
 
 
-if data.people:
+if data.get('people'):
+    logs['people'] = {}
+    errors['people'] = {}
     for user in data.get('people_config').get('users'):
         logs['people'][user] = {}
         errors['people'][user] = {}
@@ -160,7 +162,11 @@ if data.people:
         progress_processed += 1
         time.sleep(random.randint(people_timeout_from, people_timeout_to))
 
-if data.hashtags:
+time.sleep(random.randint(5, 10))
+
+if data.get('hashtags'):
+    logs['hashtags'] = {}
+    errors['hashtags'] = {}
     hashtags_amount = data.get('hashtags_config').get('amount')
     for hashtag in data.get('hashtags_config').get('hashtags'):
         posts = client.hashtag_medias_top(hashtag, amount=hashtags_amount)
@@ -221,7 +227,11 @@ if data.hashtags:
         progress_processed += 1
         time.sleep(random.randint(hashtags_timeout_from, hashtags_timeout_to))
 
-if data.parsing:
+time.sleep(random.randint(5, 10))
+
+if data.get('parsing'):
+    logs['parsing'] = {}
+    errors['parsing'] = {}
     client.delay_range = [1, 3]
     for user in data.get('parsing_config').get('users'):
         logs['parsing'][user] = {}

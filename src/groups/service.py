@@ -116,7 +116,7 @@ class GroupService:
 class ClientService:
     @classmethod
     async def login_client(cls, username: str, password: str, group: str, description: Optional[str],
-                           proxy: Optional[str], user_id: uuid.UUID):
+                           proxy: Optional[str], redis, user_id: uuid.UUID):
         client = Client()
         if proxy is not None:
             client.set_proxy(proxy)
@@ -147,6 +147,7 @@ class ClientService:
                 )
             )
             result = client_db.id
+            await redis.set(str(result), 'active')
             await session.commit()
             return result
 
@@ -418,11 +419,11 @@ class ClientService:
 
             progress_amount = 0
             if data.hashtags:
-                progress_amount += data.hashtags_config.hashtags
+                progress_amount += len(data.hashtags_config.hashtags)
             if data.people:
-                progress_amount += data.people_config.users
+                progress_amount += len(data.people_config.users)
             if data.parsing:
-                progress_amount += data.parsing_config.users
+                progress_amount += len(data.parsing_config.users)
 
             task = await TaskDAO.add(
                 session,
@@ -443,10 +444,10 @@ class ClientService:
             edit_url = str(base_url) + f'clients/tasks/task/{task_id}'
 
             if client.proxy:
-                command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\nprogress_amount={progress_amount}\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy="{client.proxy}"\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\nprogress_amount={progress_amount}\ndata={data.model_dump(exclude_unset=True)}\nproxy="{client.proxy}"\n{command}'.replace(
                     "\'", '"')
             else:
-                command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\nprogress_amount={progress_amount}\ntimeout_from={data.timeout_from}\ntimeout_to={data.timeout_to}\ndata={data.model_dump(exclude_unset=True)}\nproxy=None\n{command}'.replace(
+                command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\nprogress_amount={progress_amount}\ndata={data.model_dump(exclude_unset=True)}\nproxy=None\n{command}'.replace(
                     "\'", '"')
 
             exec_result = container.exec_run(['python', '-c', command], detach=True)

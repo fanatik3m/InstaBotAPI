@@ -59,9 +59,10 @@ async def delete_group_by_id(group_id: uuid.UUID, user: UserSchema = Depends(get
 
 @client_router.post('/login')
 async def login_client(data: LoginClientSchema,
+                       redis=Depends(get_redis),
                        user: UserSchema = Depends(get_current_user)):
     client_id = await ClientService.login_client(data.username, data.password, data.group, data.description, data.proxy,
-                                                 user.id)
+                                                 redis, user.id)
     return client_id
 
 
