@@ -13,7 +13,7 @@ from groups.dao import GroupDAO, ClientDAO, TaskDAO
 from groups.schemas import GroupCreateDBSchema, TaskCreateSchema, ClientCreateDBSchema, SingleTaskCreateSchema, \
     GroupSchema, GroupUpdateSchema, ClientSchema, ClientUpdateSchema, PeopleTaskRequestSchema, TaskUpdateSchema, \
     TaskSchema, TaskUpdateDBSchema, HashtagsTaskRequestSchema, ParsingTaskRequestSchema, MixedTaskRequestSchema, \
-    AutoReplyConfigSchema, ConfigSchema
+    AutoReplyConfigSchema, ConfigSchema, TaskOutputSchema
 from groups.models import GroupModel, ClientModel, TaskModel
 from groups.utils import Pagination, is_valid_proxy, add_text_randomize
 from database import async_session_maker
@@ -904,6 +904,28 @@ class ClientService:
                 )
 
             result = await task.to_schema(redis)
+            return result
+
+    @classmethod
+    async def get_logs(cls, task_id: uuid.UUID, user_id: uuid.UUID) -> Dict:
+        async with async_session_maker() as session:
+            task = await TaskDAO.find_by_id(session, model_id=task_id)
+            if task is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Client not found'
+                )
+
+            client = await ClientDAO.find_by_id(session, model_id=task.client_id)
+            if client.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+            result = {
+                'logs': json.loads(task.output) if task.output else None,
+                'errors': json.loads(task.errors) if task.errors else None
+            }
             return result
 
     @classmethod

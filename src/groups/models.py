@@ -83,7 +83,5 @@ class TaskModel(Base):
             progress=await redis.get(str(self.id)),
             time_start=self.time_start,
             time_end=self.time_end,
-            errors=json.loads(self.errors) if self.errors else None,
-            output=json.loads(self.output) if self.output else None,
             client_id=self.client_id
         )

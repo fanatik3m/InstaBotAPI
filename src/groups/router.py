@@ -11,7 +11,8 @@ from groups.service import GroupService, ClientService
 from groups.schemas import TaskCreateSchema, SingleTaskCreateSchema, GroupSchema, GroupUpdateSchema, ClientSchema, \
     ClientUpdateSchema, CredentialsSchema, LoginClientSchema, UsersIdsTimeoutSchema, FollowingRequestSchema, \
     HashtagsTimeoutSchema, PeopleTaskRequestSchema, TaskUpdateSchema, HashtagsTaskRequestSchema, \
-    ParsingTaskRequestSchema, MixedTaskRequestSchema, ConfigSchema, AutoReplyConfigSchema, AccountInfoSchema, TaskSchema
+    ParsingTaskRequestSchema, MixedTaskRequestSchema, ConfigSchema, AutoReplyConfigSchema, AccountInfoSchema, \
+    TaskSchema, TaskOutputSchema
 from database import get_redis
 
 group_router = APIRouter(
@@ -197,6 +198,12 @@ async def get_self_task(client_id: uuid.UUID, page: int = 1,
 async def get_detail_task(task_id: uuid.UUID, redis=Depends(get_redis),
                           user: UserSchema = Depends(get_current_user)) -> TaskSchema:
     result = await ClientService.detail_task(task_id, redis, user.id)
+    return result
+
+
+@client_router.get('/tasks/logs/{task_id}')
+async def get_task_logs(task_id: uuid.UUID, user: UserSchema = Depends(get_current_user)) -> TaskOutputSchema:
+    result = await ClientService.get_logs(task_id, user.id)
     return result
 
 

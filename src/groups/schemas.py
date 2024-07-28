@@ -124,8 +124,6 @@ class TaskSchema(BaseModel):
     progress: str
     time_start: datetime.datetime
     time_end: Optional[datetime.datetime]
-    errors: Optional[Dict]
-    output: Optional[Dict]
     client_id: uuid.UUID
 
     class Config:
@@ -210,3 +208,8 @@ class AutoReplyConfigSchema(BaseModel):
 class AccountInfoSchema(BaseModel):
     followers: int
     followings: int
+
+
+class TaskOutputSchema(BaseModel):
+    logs: Optional[Dict]
+    errors: Optional[Dict]
