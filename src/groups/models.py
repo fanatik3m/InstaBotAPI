@@ -75,12 +75,14 @@ class TaskModel(Base):
     client_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey('client.id', ondelete='CASCADE'))
 
     async def to_schema(self, redis):
+        progress, status = await redis.get(str(self.id)).split(' ')
         return TaskSchema(
             id=self.id,
             pid=self.pid,
             status=self.status,
             action_type=self.action_type,
-            progress=await redis.get(str(self.id)),
+            progress=progress,
+            is_errors=True if status == 'error' else False,
             time_start=self.time_start,
             time_end=self.time_end,
             client_id=self.client_id

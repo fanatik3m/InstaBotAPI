@@ -122,6 +122,7 @@ class TaskSchema(BaseModel):
     status: Status
     action_type: ActionType
     progress: str
+    is_errors: bool
     time_start: datetime.datetime
     time_end: Optional[datetime.datetime]
     client_id: uuid.UUID

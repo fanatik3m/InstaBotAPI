@@ -572,7 +572,7 @@ class ClientService:
 
             tasks_ids = []
             for client in clients:
-                config = client.config
+                config = json.loads(client.config)
 
                 progress_amount = 0
                 if config.hashtags:
@@ -894,7 +894,7 @@ class ClientService:
             if task is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Client not found'
+                    detail='Task not found'
                 )
 
             client = await ClientDAO.find_by_id(session, model_id=task.client_id)
@@ -913,7 +913,7 @@ class ClientService:
             if task is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Client not found'
+                    detail='Task not found'
                 )
 
             client = await ClientDAO.find_by_id(session, model_id=task.client_id)
@@ -1007,8 +1007,8 @@ class ClientService:
                     pass
 
                 auto_reply_config = json.loads(client.auto_reply_config)
-                text = auto_reply_config.get("text")
-                timeout = auto_reply_config.get("timeout")
+                text = auto_reply_config.get('text')
+                timeout = auto_reply_config.get('timeout')
 
                 if client.proxy:
                     worker_command = f'settings = {json.loads(client.settings)}\nno_dialogs_in={timeout}\ntext="{text}"\nproxy="{client.proxy}"\n{command}'.replace(
