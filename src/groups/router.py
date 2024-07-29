@@ -86,7 +86,8 @@ async def get_account_info(client_id: uuid.UUID, user: UserSchema = Depends(get_
 
 
 @client_router.get('/config/client/{client_id}')
-async def get_client_config(client_id: uuid.UUID, user: UserSchema = Depends(get_current_user)) -> ConfigSchema:
+async def get_client_config(client_id: uuid.UUID,
+                            user: UserSchema = Depends(get_current_user)) -> Optional[ConfigSchema]:
     config = await ClientService.get_config(client_id, user.id)
     return config
 
@@ -99,7 +100,7 @@ async def set_client_config(client_id: uuid.UUID, config: ConfigSchema,
 
 @client_router.get('/config/auto-reply/{client_id}')
 async def get_auto_reply_config(client_id: uuid.UUID,
-                                user: UserSchema = Depends(get_current_user)) -> AutoReplyConfigSchema:
+                                user: UserSchema = Depends(get_current_user)) -> Optional[AutoReplyConfigSchema]:
     auto_reply_config = await ClientService.get_auto_reply_config(client_id, user.id)
     return auto_reply_config
 

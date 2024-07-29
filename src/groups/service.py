@@ -184,21 +184,23 @@ class ClientService:
             return result
 
     @classmethod
-    async def get_config(cls, client_id: uuid.UUID, user_id: uuid.UUID) -> ConfigSchema:
+    async def get_config(cls, client_id: uuid.UUID, user_id: uuid.UUID) -> Optional[ConfigSchema]:
         async with async_session_maker() as session:
             client = await ClientDAO.find_by_id(session, model_id=client_id)
             if client is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail='Config not found'
+                    detail='Client not found'
                 )
             if client.user_id != user_id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN
                 )
 
-            config = json.loads(client.config)
-            return config
+            if client.config:
+                config = json.loads(client.config)
+                return config
+            return None
 
     @classmethod
     async def set_config(cls, client_id: uuid.UUID, config: ConfigSchema, user_id: uuid.UUID) -> None:
@@ -227,7 +229,7 @@ class ClientService:
             await session.commit()
 
     @classmethod
-    async def get_auto_reply_config(cls, client_id: uuid.UUID, user_id: uuid.UUID) -> AutoReplyConfigSchema:
+    async def get_auto_reply_config(cls, client_id: uuid.UUID, user_id: uuid.UUID) -> Optional[AutoReplyConfigSchema]:
         async with async_session_maker() as session:
             client = await ClientDAO.find_by_id(session, model_id=client_id)
             if client is None:
@@ -240,8 +242,10 @@ class ClientService:
                     status_code=status.HTTP_403_FORBIDDEN
                 )
 
-            auto_reply_config = json.loads(client.auto_reply_config)
-            return auto_reply_config
+            if client.auto_reply_config:
+                auto_reply_config = json.loads(client.auto_reply_config)
+                return auto_reply_config
+            return None
 
     @classmethod
     async def set_auto_reply_config(cls, client_id: uuid.UUID, auto_reply_config: AutoReplyConfigSchema,
@@ -575,12 +579,12 @@ class ClientService:
                 config = json.loads(client.config)
 
                 progress_amount = 0
-                if config.hashtags:
-                    progress_amount += len(config.hashtags_config.hashtags)
-                if config.people:
-                    progress_amount += len(config.people_config.users)
-                if config.parsing:
-                    progress_amount += len(config.parsing_config.users)
+                if config.get('hashtags'):
+                    progress_amount += len(config.get('hashtags_config').get('hashtags'))
+                if config.get('people'):
+                    progress_amount += len(config.get('people_config').get('users'))
+                if config.get('parsing'):
+                    progress_amount += len(config.get('parsing_config').get('users'))
 
                 task = await TaskDAO.add(
                     session,
@@ -600,10 +604,10 @@ class ClientService:
                 edit_url = base_url + f'clients/tasks/task/{task_id}'
 
                 if client.proxy:
-                    command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\ntask_id="{task_id}"\nprogress_amount={progress_amount}\ndata={json.loads(config)}\nproxy="{client.proxy}"\n{command}'.replace(
+                    command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\ntask_id="{task_id}"\nprogress_amount={progress_amount}\ndata={config}\nproxy="{client.proxy}"\n{command}'.replace(
                         "\'", '"')
                 else:
-                    command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\ntask_id="{task_id}"\nprogress_amount={progress_amount}\ndata={json.loads(config)}\nproxy=None\n{command}'.replace(
+                    command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\ntask_id="{task_id}"\nprogress_amount={progress_amount}\ndata={config}\nproxy=None\n{command}'.replace(
                         "\'", '"')
 
                 exec_result = container.exec_run(['python', '-c', command], detach=True)
@@ -616,7 +620,7 @@ class ClientService:
                     obj={'pid': pid}
                 )
 
-                tasks_ids += task_id
+                tasks_ids.append(task_id)
 
             await session.commit()
             return tasks_ids
