@@ -35,14 +35,15 @@ while True:
     followers_ids = list(followers.keys())
     for follower_id in followers_ids:
         thread = client.direct_thread_by_participants([follower_id])
-        items = thread.get('thread').get('items')
-        if items:
-            item = items[0]
-            last_message_time = datetime.fromtimestamp(item.get('timestamp') / 1000000)
-            time_diff = datetime.now() - last_message_time
-            if time_diff > no_dialogs_in:
+        if thread.get('thread'):
+            items = thread.get('thread').get('items')
+            if items:
+                item = items[0]
+                last_message_time = datetime.fromtimestamp(item.get('timestamp') / 1000000)
+                time_diff = datetime.now() - last_message_time
+                if time_diff > no_dialogs_in:
+                    for message in text_randomize(text):
+                        client.direct_send(message, user_ids=[follower_id])
+            else:
                 for message in text_randomize(text):
                     client.direct_send(message, user_ids=[follower_id])
-        else:
-            for message in text_randomize(text):
-                client.direct_send(message, user_ids=[follower_id])

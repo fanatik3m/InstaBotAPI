@@ -23,7 +23,7 @@ redis = redis.Redis()
 
 task_id = str(task_id)
 
-redis.set(task_id, f'0/{progress_amount}')
+redis.set(task_id, f'0/{progress_amount} ok')
 
 errors = {}
 logs = {}

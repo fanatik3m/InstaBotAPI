@@ -272,6 +272,7 @@ class ClientService:
                     'auto_reply_config': auto_reply_config_json
                 }
             )
+            await session.commit()
 
     @classmethod
     async def get_account_info(cls, client_id: uuid.UUID, user_id: uuid.UUID) -> Dict:
@@ -1007,8 +1008,6 @@ class ClientService:
             for client in clients:
                 if client.auto_reply_id:
                     container.exec_run(f'kill {client.auto_reply_id}')
-                else:
-                    pass
 
                 auto_reply_config = json.loads(client.auto_reply_config)
                 text = auto_reply_config.get('text')
