@@ -84,7 +84,9 @@ class TaskModel(Base):
                 status=self.status,
                 action_type=self.action_type,
                 progress_people=progress_people,
+                progress_hashtags=None,
                 is_error_people=True if status_people == 'error' else False,
+                is_error_hashtags=None,
                 time_start=self.time_start,
                 time_end=self.time_end,
                 client_id=self.client_id
