@@ -115,9 +115,9 @@ class AuthService:
         return TokenSchema(access_token=access_token, refresh_token=refresh_token, token_type='Bearer')
 
     @classmethod
-    async def authenticate_user(cls, email: str, password: str) -> Optional[UserModel]:
+    async def authenticate_user(cls, username: str, password: str) -> Optional[UserModel]:
         async with async_session_maker() as session:
-            db_user = await UserDAO.find_one(session, email=email)
+            db_user = await UserDAO.find_one(session, username=username)
             if db_user and is_valid_password(password, db_user.hashed_password):
                 return db_user
             return None

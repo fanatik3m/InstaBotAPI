@@ -3,6 +3,7 @@ import signal
 from datetime import datetime
 import time
 import random
+from typing import Optional
 
 import redis
 from instagrapi import Client
@@ -23,17 +24,33 @@ redis = redis.Redis()
 
 task_id = str(task_id)
 
-redis.set(task_id, f'0/{progress_amount} ok')
-
 errors = {}
 logs = {}
-progress_processed = 0
 
 paused = False
 
-is_error = False
+is_error_people = False
+is_error_hashtags = False
 
-if data.get('people'):
+people = data.get('people')
+hashtags = data.get('hashtags')
+
+if people and hashtags:
+    action = 0
+    progress_people = 0
+    progress_hashtags = 0
+elif people and not hashtags:
+    action = 1
+    progress_people = 0
+    progress_hashtags = None
+elif hashtags:
+    action = 2
+    progress_people = None
+    progress_hashtags = 0
+
+if people:
+    users = data.get('people_config').get('users')
+    users_length = len(users)
     people_timeout_from = data.get('people_config').get('timeout_from')
     people_timeout_to = data.get('people_config').get('timeout_to')
     people_posts_timeout_from = data.get('people_config').get('posts_timeout_from')
@@ -49,7 +66,9 @@ if data.get('people'):
     people_stories_amount = data.get('people_config').get('stories_amount')
     people_reels_amount = data.get('people_config').get('reels_amount')
     people_posts_amount = data.get('people_config').get('posts_amount')
-if data.get('hashtags'):
+if hashtags:
+    hashtags = data.get('hashtags_config').get('hashtags')
+    hashtags_length = len(hashtags)
     hashtags_timeout_from = data.get('hashtags_config').get('timeout_from')
     hashtags_timeout_to = data.get('hashtags_config').get('timeout_to')
     hashtags_posts_timeout_from = data.get('hashtags_config').get('posts_timeout_from')
@@ -65,18 +84,31 @@ if data.get('hashtags'):
     hashtags_stories_amount = data.get('hashtags_config').get('stories_amount')
     hashtags_reels_amount = data.get('hashtags_config').get('reels_amount')
     hashtags_posts_amount = data.get('hashtags_config').get('posts_amount')
-if data.get('parsing'):
-    parsing_followings = data.get('parsing_config').get('followings')
-    parsing_followings_amount = data.get('parsing_config').get('followings_amount')
-    parsing_followers = data.get('parsing_config').get('followers')
-    parsing_followers_amount = data.get('parsing_config').get('followers_amount')
 
 
-def set_progress(error: bool, progress: int) -> None:
-    if error:
-        redis.set(task_id, f'{progress}/{progress_amount} error')
+def set_progress(error_people: bool, error_hashtags, action_type: int, people_processed: Optional[int] = None,
+                 hashtags_processed: Optional[int] = None) -> None:
+    status_people = 'error' if error_people else 'ok'
+    status_hashtags = 'error' if error_hashtags else 'ok'
+    if action_type == 0:
+        redis.hset(task_id, mapping={'status_people': status_people,
+                                     'status_hashtags': status_hashtags,
+                                     'progress_people': f'По людям: {people_processed}/{users_length}',
+                                     'progress_hashtags': f'По хештегам: {hashtags_processed}/{hashtags_length}'
+                                     })
+    elif action_type == 1:
+        redis.hset(task_id, mapping={'status_people': status_people,
+                                     'progress_people': f'По людям: {people_processed}/{users_length}'
+                                     })
     else:
-        redis.set(task_id, f'{progress}/{progress_amount} ok')
+        redis.hset(task_id, mapping={
+            'status_hashtags': status_hashtags,
+            'progress_people': f'По хештегам: {hashtags_processed}/{hashtags_length}'
+        })
+
+
+set_progress(error_people=False, error_hashtags=False, action_type=action, people_processed=progress_people,
+             hashtags_processed=progress_hashtags)
 
 
 def handle_stop(sign, frame):
@@ -117,11 +149,10 @@ signal.signal(signal.SIGTSTP, handle_stop)
 signal.signal(signal.SIGTERM, handle_term)
 signal.signal(signal.SIGCONT, handle_resume)
 
-
-if data.get('people'):
+if people:
     logs['people'] = {}
     errors['people'] = {}
-    for user in data.get('people_config').get('users'):
+    for user in users:
         logs['people'][user] = {}
         errors['people'][user] = {}
         user_id = client.user_info_by_username_v1(user).pk
@@ -131,7 +162,7 @@ if data.get('people'):
                 client.user_follow(user_id)
                 logs['people'][user]['follow'] = True
             except Exception as e:
-                is_error = True
+                is_error_people = True
                 errors['people'][user]['follow'] = str(e)[:50]
         if people_stories_like:
             logs['people'][user]['stories_like'] = 0
@@ -143,7 +174,7 @@ if data.get('people'):
                     client.story_like(story.id)
                     logs['people'][user]['stories_like'] += 1
                 except Exception as e:
-                    is_error = True
+                    is_error_people = True
                     errors['people'][user]['stories_like'][story.pk] = str(e)
         if people_posts_like:
             logs['people'][user]['posts_like'] = 0
@@ -151,7 +182,7 @@ if data.get('people'):
             try:
                 posts = client.user_medias(user_id, amount=people_posts_amount)
             except PrivateError:
-                is_error = True
+                is_error_people = True
                 errors['people'][user]['posts_like'] = 'Account is private'
             else:
                 for post in posts:
@@ -160,7 +191,7 @@ if data.get('people'):
                         client.media_like(post.id)
                         logs['people'][user]['posts_like'] += 1
                     except FeedbackRequired:
-                        is_error = True
+                        is_error_people = True
                         errors['people'][user]['posts_like'][post.pk] = 'Too many requests, try later'
         if people_reels_like:
             logs['people'][user]['reels_like'] = 0
@@ -168,7 +199,7 @@ if data.get('people'):
             try:
                 reels = client.user_clips(user_id, amount=people_reels_amount)
             except PrivateError:
-                is_error = True
+                is_error_people = True
                 errors['people'][user]['reels_like'] = 'Account is private'
             else:
                 for reel in reels:
@@ -177,26 +208,30 @@ if data.get('people'):
                         client.media_like(reel.id)
                         logs['people'][user]['reels_like'] += 1
                     except FeedbackRequired:
-                        is_error = True
+                        is_error_people = True
                         errors[user]['reels_like'][reel.pk] = 'Too many requests, try later'
-        progress_processed += 1
-        set_progress(is_error, progress_processed)
+        progress_people += 1
+        set_progress(error_people=is_error_people, error_hashtags=is_error_hashtags, action_type=action,
+                     people_processed=progress_people,
+                     hashtags_processed=progress_hashtags)
         time.sleep(random.randint(people_timeout_from, people_timeout_to))
 
 time.sleep(random.randint(5, 10))
 
-if data.get('hashtags'):
+if hashtags:
     logs['hashtags'] = {}
     errors['hashtags'] = {}
     hashtags_amount = data.get('hashtags_config').get('amount')
-    for hashtag in data.get('hashtags_config').get('hashtags'):
+    for hashtag in hashtags:
         try:
             posts = client.hashtag_medias_top(hashtag, amount=hashtags_amount)
             users = [post.user.username for post in posts]
         except Exception as e:
-            is_error = True
+            is_error_hashtags = True
             errors['hashtags'] = str(e)[:50]
-            set_progress(is_error, progress_processed)
+            set_progress(error_people=is_error_people, error_hashtags=is_error_hashtags, action_type=action,
+                         people_processed=progress_people,
+                         hashtags_processed=progress_hashtags)
             break
 
         for user in users:
@@ -209,7 +244,7 @@ if data.get('hashtags'):
                     client.user_follow(user_id)
                     logs['hashtags'][user]['follow'] = True
                 except Exception as e:
-                    is_error = True
+                    is_error_hashtags = True
                     errors['hashtags'][user]['follow'] = str(e)[:50]
             if hashtags_stories_like:
                 logs['hashtags'][user]['stories_like'] = 0
@@ -221,7 +256,7 @@ if data.get('hashtags'):
                         client.story_like(story.id)
                         logs['hashtags'][user]['stories_like'] += 1
                     except Exception as e:
-                        is_error = True
+                        is_error_hashtags = True
                         errors['hashtags'][user]['stories_like'][story.pk] = str(e)
             if hashtags_posts_like:
                 logs['hashtags'][user]['posts_like'] = 0
@@ -229,7 +264,7 @@ if data.get('hashtags'):
                 try:
                     posts = client.user_medias(user_id, amount=hashtags_posts_amount)
                 except PrivateError:
-                    is_error = True
+                    is_error_hashtags = True
                     errors['hashtags'][user]['posts_like'] = 'Account is private'
                 else:
                     for post in posts:
@@ -238,7 +273,7 @@ if data.get('hashtags'):
                             client.media_like(post.id)
                             logs['hashtags'][user]['posts_like'] += 1
                         except FeedbackRequired:
-                            is_error = True
+                            is_error_hashtags = True
                             errors['hashtags'][user]['posts_like'][post.pk] = 'Too many requests, try later'
             if hashtags_reels_like:
                 logs['hashtags'][user]['reels_like'] = 0
@@ -246,7 +281,7 @@ if data.get('hashtags'):
                 try:
                     reels = client.user_clips(user_id, hashtags_reels_amount)
                 except PrivateError:
-                    is_error = True
+                    is_error_hashtags = True
                     errors['hashtags'][user]['reels_like'] = 'Account is private'
                 else:
                     for reel in reels:
@@ -255,38 +290,13 @@ if data.get('hashtags'):
                             client.media_like(reel.id)
                             logs['hashtags'][user]['reels_like'] += 1
                         except FeedbackRequired:
-                            is_error = True
+                            is_error_hashtags = True
                             errors['hashtags'][user]['reels_like'][reel.pk] = 'Too many requests, try later'
-        progress_processed += 1
-        set_progress(is_error, progress_processed)
+        progress_hashtags += 1
+        set_progress(error_people=is_error_people, error_hashtags=is_error_hashtags, action_type=action,
+                     people_processed=progress_people,
+                     hashtags_processed=progress_hashtags)
         time.sleep(random.randint(hashtags_timeout_from, hashtags_timeout_to))
-
-time.sleep(random.randint(5, 10))
-
-if data.get('parsing'):
-    logs['parsing'] = {}
-    errors['parsing'] = {}
-    client.delay_range = [1, 3]
-    for user in data.get('parsing_config').get('users'):
-        logs['parsing'][user] = {}
-        errors['parsing'][user] = {}
-        user_id = client.user_info_by_username_v1(user).pk
-        if parsing_followers:
-            try:
-                followers = client.user_followers(user_id, amount=parsing_followers_amount)
-                logs['parsing'][user]['followers'] = [value.username for _, value in followers.items()]
-            except Exception as e:
-                is_error = True
-                errors['parsing'][user]['followers'] = str(e)[:50]
-        if parsing_followings:
-            try:
-                followings = client.user_following(user_id, amount=parsing_followings_amount)
-                logs['parsing'][user]['followings'] = [value.username for _, value in followings.items()]
-            except Exception as e:
-                is_error = True
-                errors['parsing'][user]['followings'] = str(e)[:50]
-        progress_processed += 1
-        set_progress(is_error, progress_processed)
 
 json_data = {
     'status': 'finished',

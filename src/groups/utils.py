@@ -50,7 +50,5 @@ class Status(Enum):
 
 
 class ActionType(Enum):
-    people = 'people'
-    hashtag = 'hashtag'
-    parse = 'parse'
-    mixed = 'mixed'
+    action = 'action'
+    parsing = 'parsing'

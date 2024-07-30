@@ -121,8 +121,10 @@ class TaskSchema(BaseModel):
     pid: str
     status: Status
     action_type: ActionType
-    progress: str
-    is_errors: bool
+    progress_people: str
+    progress_hashtags: Optional[str]
+    is_error_people: bool
+    is_error_hashtags: Optional[bool]
     time_start: datetime.datetime
     time_end: Optional[datetime.datetime]
     client_id: uuid.UUID

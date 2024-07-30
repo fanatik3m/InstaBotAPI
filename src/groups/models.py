@@ -75,15 +75,48 @@ class TaskModel(Base):
     client_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey('client.id', ondelete='CASCADE'))
 
     async def to_schema(self, redis):
-        info = await redis.get(str(self.id))
-        progress, status = info.decode('utf-8').split(' ')
+        if self.action_type.value == 'parsing':
+            progress_people = await redis.hget(str(self.id), 'progress').decode('utf-8')
+            status_people = await redis.hget(str(self.id), 'status').decode('utf-8')
+            return TaskSchema(
+                id=self.id,
+                pid=self.pid,
+                status=self.status,
+                action_type=self.action_type,
+                progress_people=progress_people,
+                is_error_people=True if status_people == 'error' else False,
+                time_start=self.time_start,
+                time_end=self.time_end,
+                client_id=self.client_id
+            )
+        people = await redis.hget(str(self.id), 'status_people')
+        hashtags = await redis.hget(str(self.id), 'status_hashtags')
+
+        if people and hashtags:
+            progress_people = await redis.hget(str(self.id), 'progress_people').decode('utf-8')
+            progress_hashtags = await redis.hget(str(self.id), 'progress_hashtags').decode('utf-8')
+            status_people = await redis.hget(str(self.id), 'status_people').decode('utf-8')
+            status_hashtags = await redis.hget(str(self.id), 'status_hashtags').decode('utf-8')
+        elif people and not hashtags:
+            progress_people = await redis.hget(str(self.id), 'progress_people').decode('utf-8')
+            progress_hashtags = await redis.hget(str(self.id), 'progress_hashtags').decode('utf-8')
+            status_people = None
+            status_hashtags = None
+        elif hashtags:
+            progress_people = None
+            progress_hashtags = None
+            status_people = await redis.hget(str(self.id), 'status_people').decode('utf-8')
+            status_hashtags = await redis.hget(str(self.id), 'status_hashtags').decode('utf-8')
+
         return TaskSchema(
             id=self.id,
             pid=self.pid,
             status=self.status,
             action_type=self.action_type,
-            progress=progress,
-            is_errors=True if status == 'error' else False,
+            progress_people=progress_people,
+            progress_hashtags=progress_hashtags,
+            is_error_people=True if status_people == 'error' else False,
+            is_error_hashtags=True if status_hashtags == 'error' else False,
             time_start=self.time_start,
             time_end=self.time_end,
             client_id=self.client_id

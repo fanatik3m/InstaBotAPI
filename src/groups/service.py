@@ -579,49 +579,90 @@ class ClientService:
             for client in clients:
                 config = json.loads(client.config)
 
-                progress_amount = 0
-                if config.get('hashtags'):
-                    progress_amount += len(config.get('hashtags_config').get('hashtags'))
-                if config.get('people'):
-                    progress_amount += len(config.get('people_config').get('users'))
-                if config.get('parsing'):
-                    progress_amount += len(config.get('parsing_config').get('users'))
+                # progress_amount = 0
+                # if config.get('hashtags'):
+                #     progress_amount += len(config.get('hashtags_config').get('hashtags'))
+                # if config.get('people'):
+                #     progress_amount += len(config.get('people_config').get('users'))
+                # if config.get('parsing'):
+                #     progress_amount += len(config.get('parsing_config').get('users'))
 
-                task = await TaskDAO.add(
-                    session,
-                    TaskCreateSchema(
-                        status='working',
-                        client_id=client.id,
-                        action_type='mixed'
+                if config.get('hashtags') or config.get('people'):
+                    task = await TaskDAO.add(
+                        session,
+                        TaskCreateSchema(
+                            status='working',
+                            client_id=client.id,
+                            action_type='action'
+                        )
                     )
-                )
-                task_id = task.id
+                    task_id = task.id
 
-                await redis.set(str(client.id), 'working')
+                    await redis.set(str(client.id), 'working')
 
-                with open('groups/mixed_worker.py', 'r') as file:
-                    command = file.read()
+                    with open('groups/mixed_worker.py', 'r') as file:
+                        command = file.read()
 
-                edit_url = base_url + f'clients/tasks/task/{task_id}'
+                    edit_url = base_url + f'clients/tasks/task/{task_id}'
 
-                if client.proxy:
-                    command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\ntask_id="{task_id}"\nprogress_amount={progress_amount}\ndata={config}\nproxy="{client.proxy}"\n{command}'.replace(
-                        "\'", '"')
-                else:
-                    command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\ntask_id="{task_id}"\nprogress_amount={progress_amount}\ndata={config}\nproxy=None\n{command}'.replace(
-                        "\'", '"')
+                    action_config = {key: value for key, value in config.items() if
+                                     key not in ('parsing', 'parsing_config')}
 
-                exec_result = container.exec_run(['python', '-c', command], detach=True)
-                ps = container.exec_run('ps aux').output.decode('utf-8')
-                pid = ps.splitlines()[-2].strip().split(' ')[0]
+                    if client.proxy:
+                        command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\ntask_id="{task_id}"\ndata={action_config}\nproxy="{client.proxy}"\n{command}'.replace(
+                            "\'", '"')
+                    else:
+                        command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\ntask_id="{task_id}"\ndata={action_config}\nproxy=None\n{command}'.replace(
+                            "\'", '"')
 
-                await TaskDAO.update(
-                    session,
-                    TaskModel.id == task_id,
-                    obj={'pid': pid}
-                )
+                    exec_result = container.exec_run(['python', '-c', command], detach=True)
+                    ps = container.exec_run('ps aux').output.decode('utf-8')
+                    pid = ps.splitlines()[-2].strip().split(' ')[0]
 
-                tasks_ids.append(task_id)
+                    await TaskDAO.update(
+                        session,
+                        TaskModel.id == task_id,
+                        obj={'pid': pid}
+                    )
+
+                    tasks_ids.append(task_id)
+
+                if config.get('parsing'):
+                    task = await TaskDAO.add(
+                        session,
+                        TaskCreateSchema(
+                            status='working',
+                            client_id=client.id,
+                            action_type='parsing'
+                        )
+                    )
+                    task_id = task.id
+
+                    await redis.set(str(client.id), 'working')
+
+                    with open('groups/mixed_worker.py', 'r') as file:
+                        command = file.read()
+
+                    edit_url = base_url + f'clients/tasks/task/{task_id}'
+
+                    if client.proxy:
+                        command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\ntask_id="{task_id}"\ndata={config.get("parsing_config")}\nproxy="{client.proxy}"\n{command}'.replace(
+                            "\'", '"')
+                    else:
+                        command = f'settings = {json.loads(client.settings)}\nurl="{edit_url}"\ntask_id="{task_id}"\ndata={config.get("parsing_config")}\nproxy=None\n{command}'.replace(
+                            "\'", '"')
+
+                    exec_result = container.exec_run(['python', '-c', command], detach=True)
+                    ps = container.exec_run('ps aux').output.decode('utf-8')
+                    pid = ps.splitlines()[-2].strip().split(' ')[0]
+
+                    await TaskDAO.update(
+                        session,
+                        TaskModel.id == task_id,
+                        obj={'pid': pid}
+                    )
+
+                    tasks_ids.append(task_id)
 
             await session.commit()
             return tasks_ids
