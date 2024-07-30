@@ -19,8 +19,8 @@ class BaseDAO:
         return result.scalars().all()
 
     @classmethod
-    async def find_last(cls, session: AsyncSession, order_by, **filter_by):
-        query = select(cls.model).filter_by(**filter_by).order_by(desc(order_by)).limit(1)
+    async def find_last(cls, session: AsyncSession, limit: int, order_by, **filter_by):
+        query = select(cls.model).filter_by(**filter_by).order_by(desc(order_by)).limit(limit)
         result = await session.execute(query)
         return result.scalars().all()[0]
 

@@ -728,10 +728,11 @@ class ClientService:
             container = docker_client.containers.get(group.docker_id)
 
             for client_id in clients_ids:
-                task = await TaskDAO.find_last(session, TaskModel.time_start, client_id=client_id)
+                tasks = await TaskDAO.find_last(session, 2, TaskModel.time_start, client_id=client_id, status='working')
 
-                if task.status.value == 'working':
-                    # container.exec_run(f'kill -STOP {task.pid}')
+                for task in tasks:
+                    # if task.status.value == 'working':
+                        # container.exec_run(f'kill -STOP {task.pid}')
                     container.exec_run(f'kill -SIGTSTP {task.pid}')
 
     @classmethod
@@ -753,10 +754,11 @@ class ClientService:
             container = docker_client.containers.get(group.docker_id)
 
             for client_id in clients_ids:
-                task = await TaskDAO.find_last(session, TaskModel.time_start, client_id=client_id)
+                tasks = await TaskDAO.find_last(session, 2, TaskModel.time_start, client_id=client_id, status='working')
 
-                if task.status.value == 'paused':
-                    # container.exec_run(f'kill -CONT {task.pid}', detach=True)
+                for task in tasks:
+                    # if task.status.value == 'paused':
+                        # container.exec_run(f'kill -CONT {task.pid}', detach=True)
                     container.exec_run(f'kill -SIGCONT {task.pid}')
 
                     await TaskDAO.update(
@@ -785,10 +787,11 @@ class ClientService:
             container = docker_client.containers.get(group.docker_id)
 
             for client_id in clients_ids:
-                task = await TaskDAO.find_last(session, TaskModel.time_start, client_id=client_id)
+                tasks = await TaskDAO.find_last(session, 2, TaskModel.time_start, client_id=client_id, status='working')
 
-                if task.status.value == 'working':
-                    # container.exec_run(f'kill {task.pid}', detach=True)
+                for task in tasks:
+                    # if task.status.value == 'working':
+                        # container.exec_run(f'kill {task.pid}', detach=True)
                     container.exec_run(f'kill -SIGTERM {task.pid}')
 
     # @classmethod
