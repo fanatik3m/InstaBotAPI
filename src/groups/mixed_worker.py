@@ -254,7 +254,7 @@ if hashtags:
             set_progress(error_people=is_error_people, error_hashtags=is_error_hashtags, action_type=action,
                          people_processed=progress_people,
                          hashtags_processed=progress_hashtags)
-            break
+            continue
 
         for user in users:
             logs['hashtags'][user] = {}
