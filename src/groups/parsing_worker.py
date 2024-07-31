@@ -6,7 +6,7 @@ import random
 
 import redis
 from instagrapi import Client
-from instagrapi.exceptions import PrivateError, FeedbackRequired
+from instagrapi.exceptions import PrivateError, FeedbackRequired, LoginRequired
 
 import requests
 
@@ -93,7 +93,18 @@ errors['parsing'] = {}
 for user in data.get('users'):
     logs['parsing'][user] = {}
     errors['parsing'][user] = {}
-    user_id = client.user_info_by_username_v1(user).pk
+    try:
+        user_id = client.user_info_by_username_v1(user).pk
+    except LoginRequired:
+        is_error = True
+        errors['parsing'][user] = {'error': 'Login required'}
+        set_progress(error=is_error, progress=progress_processed)
+        break
+    except Exception as e:
+        is_error = True
+        errors['parsing'][user] = {'error': str(e)[:50]}
+        set_progress(error=is_error, progress=progress_processed)
+        continue
     if parsing_followers:
         try:
             followers = client.user_followers(user_id, amount=parsing_followers_amount)

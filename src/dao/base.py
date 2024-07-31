@@ -22,7 +22,7 @@ class BaseDAO:
     async def find_last(cls, session: AsyncSession, limit: int, order_by, **filter_by):
         query = select(cls.model).filter_by(**filter_by).order_by(desc(order_by)).limit(limit)
         result = await session.execute(query)
-        return result.scalars().all()[0]
+        return result.scalars().all()
 
     @classmethod
     async def find_pagination(cls, session: AsyncSession, offset: int, limit: int, *filter, **filter_by):

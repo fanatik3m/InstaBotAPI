@@ -7,7 +7,7 @@ from typing import Optional
 
 import redis
 from instagrapi import Client
-from instagrapi.exceptions import PrivateError, FeedbackRequired
+from instagrapi.exceptions import PrivateError, FeedbackRequired, LoginRequired
 
 import requests
 
@@ -155,7 +155,22 @@ if people:
     for user in users:
         logs['people'][user] = {}
         errors['people'][user] = {}
-        user_id = client.user_info_by_username_v1(user).pk
+        try:
+            user_id = client.user_info_by_username_v1(user).pk
+        except LoginRequired:
+            is_error_people = True
+            errors['people'][user] = {'error': 'Login required'}
+            set_progress(error_people=is_error_people, error_hashtags=is_error_hashtags, action_type=action,
+                         people_processed=progress_people,
+                         hashtags_processed=progress_hashtags)
+            break
+        except Exception as e:
+            is_error_people = True
+            errors['people'][user] = {'error': str(e)[:50]}
+            set_progress(error_people=is_error_people, error_hashtags=is_error_hashtags, action_type=action,
+                         people_processed=progress_people,
+                         hashtags_processed=progress_hashtags)
+            continue
         if people_follow:
             logs['people'][user]['follow'] = False
             try:
@@ -226,6 +241,13 @@ if hashtags:
         try:
             posts = client.hashtag_medias_top(hashtag, amount=hashtags_amount)
             users = [post.user.username for post in posts]
+        except LoginRequired:
+            is_error_people = True
+            errors['hashtags'] = {'error': 'Login required'}
+            set_progress(error_people=is_error_people, error_hashtags=is_error_hashtags, action_type=action,
+                         people_processed=progress_people,
+                         hashtags_processed=progress_hashtags)
+            break
         except Exception as e:
             is_error_hashtags = True
             errors['hashtags'] = str(e)[:50]

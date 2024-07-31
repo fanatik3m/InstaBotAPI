@@ -754,7 +754,7 @@ class ClientService:
             container = docker_client.containers.get(group.docker_id)
 
             for client_id in clients_ids:
-                tasks = await TaskDAO.find_last(session, 2, TaskModel.time_start, client_id=client_id, status='working')
+                tasks = await TaskDAO.find_last(session, 2, TaskModel.time_start, client_id=client_id, status='paused')
 
                 for task in tasks:
                     # if task.status.value == 'paused':
@@ -788,6 +788,10 @@ class ClientService:
 
             for client_id in clients_ids:
                 tasks = await TaskDAO.find_last(session, 2, TaskModel.time_start, client_id=client_id, status='working')
+
+                if not tasks:
+                    tasks = await TaskDAO.find_last(session, 2, TaskModel.time_start, client_id=client_id,
+                                                    status='paused')
 
                 for task in tasks:
                     # if task.status.value == 'working':
