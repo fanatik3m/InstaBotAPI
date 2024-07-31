@@ -90,7 +90,7 @@ signal.signal(signal.SIGCONT, handle_resume)
 
 logs['parsing'] = {}
 errors['parsing'] = {}
-for user in data.get('parsing_config').get('users'):
+for user in data.get('users'):
     logs['parsing'][user] = {}
     errors['parsing'][user] = {}
     user_id = client.user_info_by_username_v1(user).pk

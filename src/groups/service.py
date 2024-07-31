@@ -640,7 +640,7 @@ class ClientService:
 
                     await redis.set(str(client.id), 'working')
 
-                    with open('groups/mixed_worker.py', 'r') as file:
+                    with open('groups/parsing_worker.py', 'r') as file:
                         command = file.read()
 
                     edit_url = base_url + f'clients/tasks/task/{task_id}'
