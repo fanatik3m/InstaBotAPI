@@ -1311,6 +1311,20 @@ class ClientService:
             return result
 
     @classmethod
+    async def delete_clients(cls, clients_ids: List[uuid.UUID], redis, user_id: uuid.UUID) -> None:
+        async with async_session_maker() as session:
+            query = select(ClientModel.id).filter(ClientModel.id.in_(clients_ids), ClientModel.user_id == user_id)
+            result = await session.execute(query)
+            clients = result.scalars().all()
+
+            if not clients:
+                return None
+
+            await ClientDAO.delete(session, ClientModel.id.in_(clients))
+            await redis.delete(*[str(client_id) for client_id in clients])
+            await session.commit()
+
+    @classmethod
     async def delete_client_by_id(cls, client_id: uuid.UUID, user_id: uuid.UUID) -> None:
         async with async_session_maker() as session:
             client = await ClientDAO.find_by_id(session, model_id=client_id)

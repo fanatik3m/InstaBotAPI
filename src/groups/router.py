@@ -270,6 +270,11 @@ async def edit_client_by_id(client_id: uuid.UUID, client: ClientUpdateSchema, re
     return client
 
 
-@client_router.delete('/operations/{client_id}')
-async def delete_client_by_id(client_id: uuid.UUID, user: UserSchema = Depends(get_current_user)) -> None:
-    await ClientService.delete_client_by_id(client_id, user.id)
+# @client_router.delete('/operations/{client_id}')
+# async def delete_client_by_id(client_id: uuid.UUID, user: UserSchema = Depends(get_current_user)) -> None:
+#     await ClientService.delete_client_by_id(client_id, user.id)
+
+@client_router.delete('/operations/')
+async def delete_clients_by_id(clients_ids: List[uuid.UUID] = Body(...), redis=Depends(get_redis),
+                               user: UserSchema = Depends(get_current_user)) -> None:
+    await ClientService.delete_clients(clients_ids, redis, user.id)
