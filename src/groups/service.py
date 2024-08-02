@@ -154,7 +154,7 @@ class ClientService:
             return result
 
     @classmethod
-    async def relogin_client(cls, client_id: uuid.UUID, username: str, password: str, user_id: uuid.UUID) -> uuid:
+    async def relogin_client(cls, client_id: uuid.UUID, user_id: uuid.UUID) -> uuid:
         async with async_session_maker() as session:
             client = await ClientDAO.find_by_id(session, model_id=client_id)
             if client is None:
@@ -169,10 +169,13 @@ class ClientService:
 
             cl = Client()
             old_settings = json.loads(client.settings)
-            cl.set_uuids(old_settings.get('uuids'))
-            cl.login(username, password)
-
+            cl.set_settings(old_settings)
+            cl.relogin()
             new_settings = json.dumps(cl.get_settings())
+
+            # cl.set_uuids(old_settings.get('uuids'))
+            # cl.login(username, password)
+
             client_updated = await ClientDAO.update(
                 session,
                 ClientModel.id == client.id,

@@ -68,9 +68,9 @@ async def login_client(data: LoginClientSchema,
 
 
 @client_router.post('/relogin')
-async def relogin_client(credentials: CredentialsSchema, client_id: uuid.UUID = Body(...),
+async def relogin_client(client_id: uuid.UUID = Body(...),
                          user: UserSchema = Depends(get_current_user)) -> uuid.UUID:
-    client_id = await ClientService.relogin_client(client_id, credentials.username, credentials.password, user.id)
+    client_id = await ClientService.relogin_client(client_id, user.id)
     return client_id
 
 
