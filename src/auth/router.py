@@ -40,13 +40,13 @@ async def login(
     response.set_cookie(
         'access_token',
         token.access_token,
-        max_age=config.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        max_age=int(config.ACCESS_TOKEN_EXPIRE_MINUTES) * 60,
         httponly=True
     )
     response.set_cookie(
         'refresh_token',
         str(token.refresh_token),
-        max_age=config.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        max_age=int(config.REFRESH_TOKEN_EXPIRE_DAYS) * 24 * 60 * 60,
         httponly=True
     )
     return token
@@ -87,13 +87,13 @@ async def refresh_token(
     response.set_cookie(
         'access_token',
         new_token.access_token,
-        max_age=config.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        max_age=int(config.ACCESS_TOKEN_EXPIRE_MINUTES) * 60,
         httponly=True
     )
     response.set_cookie(
         'refresh_token',
         str(new_token.refresh_token),
-        max_age=config.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        max_age=int(config.REFRESH_TOKEN_EXPIRE_DAYS) * 24 * 60 * 60,
         httponly=True
     )
     return new_token

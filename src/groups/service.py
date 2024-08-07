@@ -22,11 +22,18 @@ from database import async_session_maker
 class GroupService:
     @classmethod
     async def create_group(cls, name: str, user_id: uuid.UUID) -> None:
-        docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
-        container = docker_client.containers.run('python:3.10-alpine3.19', detach=True, tty=True, network_mode='host')
-        container.exec_run('pip install instagrapi Pillow>=8.1 requests redis', detach=True)
-
         async with async_session_maker() as session:
+            group = await GroupDAO.find_one(session, name=name)
+            if group:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail='Group already exists'
+                )
+
+            docker_client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+            container = docker_client.containers.run('python:3.10-alpine3.19', detach=True, tty=True, network_mode='host')
+            container.exec_run('pip install instagrapi Pillow>=8.1 requests redis', detach=True)
+
             await GroupDAO.add(
                 session,
                 GroupCreateDBSchema(
@@ -119,16 +126,23 @@ class ClientService:
     @classmethod
     async def login_client(cls, username: str, password: str, group: str, description: Optional[str],
                            proxy: Optional[str], redis, user_id: uuid.UUID):
-        client = Client()
-        if proxy is not None:
-            client.set_proxy(proxy)
-
-        client.login(username, password)
-        user_photo = client.user_info_by_username_v1(username).profile_pic_url
-        photo_url = f'{user_photo.scheme}://{user_photo.host}:{user_photo.port}{user_photo.path}?{user_photo.query}'
-        settings = client.get_settings()
-
         async with async_session_maker() as session:
+            client_created = await ClientDAO.find_one(session, username=username)
+            if client_created:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail='Group already exists'
+                )
+
+            client = Client()
+            if proxy is not None:
+                client.set_proxy(proxy)
+
+            client.login(username, password)
+            user_photo = client.user_info_by_username_v1(username).profile_pic_url
+            photo_url = f'{user_photo.scheme}://{user_photo.host}:{user_photo.port}{user_photo.path}?{user_photo.query}'
+            settings = client.get_settings()
+
             group_db = await GroupDAO.find_one(session, name=group, user_id=user_id)
             if group_db is None:
                 raise HTTPException(
@@ -154,7 +168,7 @@ class ClientService:
             return result
 
     @classmethod
-    async def relogin_client(cls, client_id: uuid.UUID, user_id: uuid.UUID) -> uuid:
+    async def relogin_client(cls, client_id: uuid.UUID, username: str, password: str, user_id: uuid.UUID) -> uuid:
         async with async_session_maker() as session:
             client = await ClientDAO.find_by_id(session, model_id=client_id)
             if client is None:
@@ -168,13 +182,18 @@ class ClientService:
                 )
 
             cl = Client()
-            old_settings = json.loads(client.settings)
-            cl.set_settings(old_settings)
-            cl.relogin()
-            new_settings = json.dumps(cl.get_settings())
+            if client.proxy is not None:
+                cl.set_proxy(client.proxy)
 
-            # cl.set_uuids(old_settings.get('uuids'))
-            # cl.login(username, password)
+            old_settings = json.loads(client.settings)
+
+            cl.set_uuids(old_settings.get('uuids'))
+            cl.login(username, password)
+
+            # cl.set_settings(old_settings)
+            # cl.relogin()
+
+            new_settings = json.dumps(cl.get_settings())
 
             client_updated = await ClientDAO.update(
                 session,
@@ -292,6 +311,7 @@ class ClientService:
                 )
 
             settings = json.loads(client.settings)
+
             cl = Client()
             cl.set_settings(settings)
             if client.proxy is not None:
