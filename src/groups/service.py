@@ -6,6 +6,7 @@ from datetime import timedelta, datetime
 from fastapi import HTTPException, status
 import docker
 from instagrapi import Client
+from instagrapi.exceptions import UserNotFound
 from instagrapi.types import HttpUrl
 from sqlalchemy import select
 
@@ -100,7 +101,7 @@ class GroupService:
     @classmethod
     async def delete_group_by_id(cls, group_id: uuid.UUID, user_id: uuid.UUID) -> None:
         async with async_session_maker() as session:
-            group = await GroupDAO.delete(session, id=group_id)
+            group = await GroupDAO.find_by_id(session, model_id=group_id)
             if group is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -131,17 +132,23 @@ class ClientService:
             if client_created:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail='Group already exists'
+                    detail='Client already exists'
                 )
 
             client = Client()
             if proxy is not None:
                 client.set_proxy(proxy)
 
-            client.login(username, password)
-            user_photo = client.user_info_by_username_v1(username).profile_pic_url
-            photo_url = f'{user_photo.scheme}://{user_photo.host}:{user_photo.port}{user_photo.path}?{user_photo.query}'
-            settings = client.get_settings()
+            try:
+                client.login(username, password)
+                user_photo = client.user_info_by_username_v1(username).profile_pic_url
+                photo_url = f'{user_photo.scheme}://{user_photo.host}:{user_photo.port}{user_photo.path}?{user_photo.query}'
+                settings = client.get_settings()
+            except UserNotFound:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Instagram user not found'
+                )
 
             group_db = await GroupDAO.find_one(session, name=group, user_id=user_id)
             if group_db is None:
@@ -163,7 +170,7 @@ class ClientService:
                 )
             )
             result = client_db.id
-            await redis.set(str(result), 'active')
+            await redis.set(str(result), 'stopped')
             await session.commit()
             return result
 
@@ -315,7 +322,7 @@ class ClientService:
             cl = Client()
             cl.set_settings(settings)
             if client.proxy is not None:
-                client.set_proxy(client.proxy)
+                cl.set_proxy(client.proxy)
 
             info = cl.user_info_by_username_v1(client.username)
             return {
@@ -733,7 +740,7 @@ class ClientService:
     #             container.exec_run(f'kill -SIGTSTP {task.pid}')
 
     @classmethod
-    async def pause_task(cls, clients_ids: List[uuid.UUID], user_id: uuid.UUID) -> None:
+    async def pause_task(cls, clients_ids: List[uuid.UUID], redis, user_id: uuid.UUID) -> None:
         async with async_session_maker() as session:
             query = select(ClientModel.id).filter(ClientModel.id.in_(clients_ids), ClientModel.user_id == user_id)
             result = await session.execute(query)
@@ -757,9 +764,10 @@ class ClientService:
                     # if task.status.value == 'working':
                         # container.exec_run(f'kill -STOP {task.pid}')
                     container.exec_run(f'kill -SIGTSTP {task.pid}')
+                await redis.set(str(client_id), 'paused')
 
     @classmethod
-    async def restart_task(cls, clients_ids: List[uuid.UUID], user_id: uuid.UUID) -> None:
+    async def restart_task(cls, clients_ids: List[uuid.UUID], redis, user_id: uuid.UUID) -> None:
         async with async_session_maker() as session:
             query = select(ClientModel.id).filter(ClientModel.id.in_(clients_ids), ClientModel.user_id == user_id)
             result = await session.execute(query)
@@ -789,10 +797,11 @@ class ClientService:
                         TaskModel.id == task.id,
                         obj={'status': 'working'}
                     )
+                await redis.set(str(client_id), 'working')
             await session.commit()
 
     @classmethod
-    async def stop_task(cls, clients_ids: List[uuid.UUID], user_id: uuid.UUID) -> None:
+    async def stop_task(cls, clients_ids: List[uuid.UUID], redis, user_id: uuid.UUID) -> None:
         async with async_session_maker() as session:
             query = select(ClientModel.id).filter(ClientModel.id.in_(clients_ids), ClientModel.user_id == user_id)
             result = await session.execute(query)
@@ -820,6 +829,7 @@ class ClientService:
                     # if task.status.value == 'working':
                         # container.exec_run(f'kill {task.pid}', detach=True)
                     container.exec_run(f'kill -SIGTERM {task.pid}')
+                await redis.set(str(client_id), 'stopped')
 
     # @classmethod
     # async def restart_task(cls, task_id: uuid.UUID, client_id: uuid.UUID, redis, user_id: uuid.UUID) -> None:
@@ -920,7 +930,12 @@ class ClientService:
             client = await ClientDAO.find_by_id(session, model_id=task_db.client_id)
 
             if task.status.value == 'finished' or task.status.value == 'stopped':
-                await redis.set(str(client.id), 'active')
+                if task.status.value == 'stopped':
+                    await redis.set(str(client.id), 'stopped')
+                else:
+                    tasks_executing = await TaskDAO.find_pagination(session, 0, 2, client_id=client.id)
+                    if len(tasks_executing) != 2:
+                        await redis.set(str(client.id), 'finished')
 
                 await TaskDAO.update(
                     session,
@@ -929,7 +944,7 @@ class ClientService:
                 )
                 await session.commit()
             elif task.status.value == 'paused':
-                await redis.set(str(client.id), 'active')
+                await redis.set(str(client.id), 'paused')
 
                 await TaskDAO.update(
                     session,

@@ -2,7 +2,9 @@ import uuid
 from datetime import timedelta
 from typing import List, Optional, Dict
 
-from fastapi import APIRouter, Depends, Body, Form, Request
+from fastapi import APIRouter, Depends, Body, Form, Request, HTTPException, status
+from requests.exceptions import RetryError
+from instagrapi.exceptions import LoginRequired
 
 from auth.dependencies import get_current_user
 from auth.schemas import UserSchema
@@ -27,11 +29,8 @@ client_router = APIRouter(
 
 @group_router.post('')
 async def create_group(group: str = Body(...), user: UserSchema = Depends(get_current_user)):
-    try:
-        await GroupService.create_group(group, user.id)
-        return f'Created group {group}'
-    except Exception as e:
-        return e
+    await GroupService.create_group(group, user.id)
+    return f'Created group {group}'
 
 
 @group_router.get('')
@@ -81,8 +80,19 @@ async def validate_proxy(proxy: str = Body(...)) -> bool:
 
 @client_router.get('/account-info/{client_id}')
 async def get_account_info(client_id: uuid.UUID, user: UserSchema = Depends(get_current_user)) -> AccountInfoSchema:
-    account_info = await ClientService.get_account_info(client_id, user.id)
-    return account_info
+    try:
+        account_info = await ClientService.get_account_info(client_id, user.id)
+        return account_info
+    except LoginRequired:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='Instagram account requires login'
+        )
+    except RetryError:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail='Too many requests, try later'
+        )
 
 
 @client_router.get('/config/client/{client_id}')
@@ -165,21 +175,21 @@ async def create_mixed_task(request: Request, clients_ids: List[uuid.UUID] = Bod
 
 
 @client_router.post('/tasks/pause')
-async def pause_task(clients_ids: List[uuid.UUID] = Body(...),
+async def pause_task(clients_ids: List[uuid.UUID] = Body(...), redis=Depends(get_redis),
                      user: UserSchema = Depends(get_current_user)) -> None:
-    await ClientService.pause_task(clients_ids, user.id)
+    await ClientService.pause_task(clients_ids, redis, user.id)
 
 
 @client_router.post('/tasks/restart')
-async def restart_task(clients_ids: List[uuid.UUID] = Body(...),
+async def restart_task(clients_ids: List[uuid.UUID] = Body(...), redis=Depends(get_redis),
                        user: UserSchema = Depends(get_current_user)) -> None:
-    await ClientService.restart_task(clients_ids, user.id)
+    await ClientService.restart_task(clients_ids, redis, user.id)
 
 
 @client_router.post('/tasks/stop')
-async def stop_task(clients_ids: List[uuid.UUID] = Body(...),
+async def stop_task(clients_ids: List[uuid.UUID] = Body(...), redis=Depends(get_redis),
                     user: UserSchema = Depends(get_current_user)) -> None:
-    await ClientService.stop_task(clients_ids, user.id)
+    await ClientService.stop_task(clients_ids, redis, user.id)
 
 
 @client_router.put('/tasks/task/{task_id}')
